@@ -222,7 +222,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d7d294432d6e269428244319c733986a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _moveSpeed: 4
+  _moveSpeed: 3
   _tileUnitSize: 1
   _isometricAngleBias: 0
 --- !u!70 &518311208
@@ -259,8 +259,8 @@ CapsuleCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: -0.004055596, y: -0.38782442}
-  m_Size: {x: 0.955993, y: 0.21409573}
+  m_Offset: {x: 0.004776481, y: -0.31010306}
+  m_Size: {x: 0.7475595, y: 0.20703164}
   m_Direction: 1
 --- !u!50 &518311209
 Rigidbody2D:
