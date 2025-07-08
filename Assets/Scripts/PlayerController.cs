@@ -5,6 +5,7 @@ using UnityEngine.InputSystem; // Required for the new Input System
 /// Controls player movement on an isometric 2D tilemap using Unity's new Input System.
 /// The player moves on the X and Y axis, with input translated to isometric directions.
 /// Also handles sprite flipping and animation state changes based on movement direction.
+/// Integrates with a VariableJoystick for touch input, with an option to disable it.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))] // Ensures a Rigidbody2D component is present on the GameObject
 [RequireComponent(typeof(SpriteRenderer))] // Ensures a SpriteRenderer component is present
@@ -39,7 +40,16 @@ public class PlayerController : MonoBehaviour
     [SerializeField]
     private float _isometricAngleBias = 0.0f; // This field remains for fine-tuning
 
-    // Stores the current movement input read from the Input System.
+    [Header("Joystick Integration")]
+    [Tooltip("Drag your VariableJoystick UI element here from the scene.")]
+    [SerializeField]
+    private VariableJoystick _variableJoystick; // Reference to your VariableJoystick
+
+    [Tooltip("If true, input from the Variable Joystick will be used. If false, only keyboard/gamepad input will be used.")]
+    [SerializeField]
+    private bool _useJoystickInput = true; // New field to enable/disable joystick input
+
+    // Stores the current movement input, combined from all sources.
     private Vector2 _currentMovementInput;
 
     // Animator parameter hashes for efficiency (avoids string comparisons every frame).
@@ -59,10 +69,6 @@ public class PlayerController : MonoBehaviour
         _rb = GetComponent<Rigidbody2D>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
         _animator = GetComponent<Animator>();
-
-        // Subscribe to input action events.
-        _playerInputActions.Player.Move.performed += OnMovePerformed;
-        _playerInputActions.Player.Move.canceled += OnMoveCanceled;
     }
 
     /// <summary>
@@ -74,11 +80,8 @@ public class PlayerController : MonoBehaviour
         if (_playerInputActions == null)
         {
             _playerInputActions = new InputSystem_Actions();
-            _playerInputActions.Player.Move.performed -= OnMovePerformed;
-            _playerInputActions.Player.Move.canceled -= OnMoveCanceled;
-            _playerInputActions.Player.Move.performed += OnMovePerformed;
-            _playerInputActions.Player.Move.canceled += OnMoveCanceled;
         }
+        // Ensure input actions are enabled for keyboard/gamepad.
         _playerInputActions.Player.Enable();
     }
 
@@ -95,33 +98,33 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
-    /// Callback function for when the 'Move' input action is performed.
-    /// Reads the current input value (Vector2) from the context.
-    /// </summary>
-    /// <param name="context">The context of the input action.</param>
-    private void OnMovePerformed(InputAction.CallbackContext context)
-    {
-        _currentMovementInput = context.ReadValue<Vector2>();
-    }
-
-    /// <summary>
-    /// Callback function for when the 'Move' input action is canceled.
-    /// Resets the current movement input to zero, stopping player movement.
-    /// </summary>
-    /// <param name="context">The context of the input action.</param>
-    private void OnMoveCanceled(InputAction.CallbackContext context)
-    {
-        _currentMovementInput = Vector2.zero;
-    }
-
-    /// <summary>
     /// FixedUpdate is called at a fixed framerate, ideal for physics calculations.
     /// Handles the player's movement, sprite flipping, and animation updates.
     /// </summary>
     private void FixedUpdate()
     {
+        // Control the active state of the joystick GameObject based on _useJoystickInput.
+        if (_variableJoystick != null)
+        {
+            _variableJoystick.gameObject.SetActive(_useJoystickInput);
+        }
+
+        // --- Input Gathering ---
+        // Get input from keyboard/gamepad via Input Actions.
+        Vector2 inputFromInputActions = _playerInputActions.Player.Move.ReadValue<Vector2>();
+
+        // Get input from the VariableJoystick only if _useJoystickInput is true and joystick reference is set.
+        Vector2 inputFromJoystick = Vector2.zero;
+        if (_useJoystickInput && _variableJoystick != null)
+        {
+            inputFromJoystick = _variableJoystick.Direction;
+        }
+
+        // Combine inputs: Joystick input takes precedence if it's active AND enabled via _useJoystickInput.
+        _currentMovementInput = inputFromJoystick != Vector2.zero ? inputFromJoystick : inputFromInputActions;
+
         // Set IsMoving animator parameter.
-        // If there's any input, the player is moving.
+        // If there's any combined input, the player is moving.
         _animator.SetBool(IsMovingHash, _currentMovementInput != Vector2.zero);
 
         // If no movement input, stop further movement calculations.
@@ -130,7 +133,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        // Get the raw 2D input vector.
+        // Get the raw 2D input vector (which is now combined).
         Vector2 rawInput = _currentMovementInput;
 
         // Apply isometric transformation for a 1:2 slope.
