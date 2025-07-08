@@ -5,6 +5,10 @@ TagManager:
   serializedVersion: 3
   tags:
   - Collision
+  - NPC
+  - NPCChat
+  - PlayerChat
+  - Collectable
   layers:
   - Default
   - TransparentFX
@@ -13,8 +17,8 @@ TagManager:
   - Water
   - UI
   - Player
-  - 
-  - 
+  - NPC
+  - Collectable
   - 
   - 
   - 
@@ -45,8 +49,14 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: NPC
+    uniqueID: 1360610913
+    locked: 0
   - name: Player
     uniqueID: 448867469
+    locked: 0
+  - name: Objects
+    uniqueID: 3217440979
     locked: 0
   - name: Collision
     uniqueID: 1227806321

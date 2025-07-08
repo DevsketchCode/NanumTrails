@@ -6,6 +6,7 @@ using UnityEngine.InputSystem; // Required for the new Input System
 /// The player moves on the X and Y axis, with input translated to isometric directions.
 /// Also handles sprite flipping and animation state changes based on movement direction.
 /// Integrates with a VariableJoystick for touch input, with an option to disable it.
+/// Also handles triggering conversations with NPCs.
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))] // Ensures a Rigidbody2D component is present on the GameObject
 [RequireComponent(typeof(SpriteRenderer))] // Ensures a SpriteRenderer component is present
@@ -49,8 +50,16 @@ public class PlayerController : MonoBehaviour
     [SerializeField]
     private bool _useJoystickInput = true; // New field to enable/disable joystick input
 
+    [Header("Conversation Integration")]
+    [Tooltip("Drag the ConversationManager GameObject here from the scene.")]
+    [SerializeField]
+    private ConversationManager _conversationManager; // Reference to the ConversationManager
+
     // Stores the current movement input, combined from all sources.
     private Vector2 _currentMovementInput;
+
+    // Boolean to control if player movement is currently enabled (e.g., paused during conversation).
+    private bool _isMovementEnabled = true;
 
     // Animator parameter hashes for efficiency (avoids string comparisons every frame).
     private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
@@ -69,6 +78,14 @@ public class PlayerController : MonoBehaviour
         _rb = GetComponent<Rigidbody2D>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
         _animator = GetComponent<Animator>();
+
+        // Set the player GameObject's tag to "Player" if it's not already.
+        // This is used by ConversationManager to find the PlayerController.
+        if (gameObject.tag != "Player")
+        {
+            Debug.LogWarning("PlayerController: Player GameObject does not have 'Player' tag. Setting it now.");
+            gameObject.tag = "Player";
+        }
     }
 
     /// <summary>
@@ -98,6 +115,22 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
+    /// Sets whether player movement is enabled or disabled.
+    /// Used by other scripts (e.g., ConversationManager) to pause/resume player control.
+    /// </summary>
+    /// <param name="enabled">True to enable movement, false to disable.</param>
+    public void SetMovementEnabled(bool enabled)
+    {
+        _isMovementEnabled = enabled;
+        if (!enabled)
+        {
+            // Stop movement immediately if disabled.
+            _currentMovementInput = Vector2.zero;
+            _animator.SetBool(IsMovingHash, false); // Stop walking animation
+        }
+    }
+
+    /// <summary>
     /// FixedUpdate is called at a fixed framerate, ideal for physics calculations.
     /// Handles the player's movement, sprite flipping, and animation updates.
     /// </summary>
@@ -107,6 +140,14 @@ public class PlayerController : MonoBehaviour
         if (_variableJoystick != null)
         {
             _variableJoystick.gameObject.SetActive(_useJoystickInput);
+        }
+
+        // If movement is disabled, prevent any input processing for movement.
+        if (!_isMovementEnabled)
+        {
+            _currentMovementInput = Vector2.zero; // Ensure no lingering input
+            _animator.SetBool(IsMovingHash, false); // Ensure idle animation
+            return;
         }
 
         // --- Input Gathering ---
@@ -195,5 +236,45 @@ public class PlayerController : MonoBehaviour
             _animator.SetBool(IsFacingBackwardHash, false); // Player is moving "down" the screen
         }
         // If direction.y is 0 (pure left/right input), maintain last vertical animation state.
+    }
+
+    /// <summary>
+    /// Called when this collider enters a trigger.
+    /// Used to detect collision with NPC trigger and start conversation.
+    /// </summary>
+    /// <param name="other">The other Collider2D involved in this collision.</param>
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        // Check if the collided object has the "NPC" tag.
+        // You'll need to set the NPC's GameObject tag to "NPC" in the Inspector.
+        if (other.CompareTag("NPC"))
+        {
+            // Attempt to get the NPCConversationTrigger component from the collided NPC.
+            NPCConversationTrigger npcTrigger = other.GetComponent<NPCConversationTrigger>();
+            if (npcTrigger != null)
+            {
+                // Ensure ConversationManager instance exists.
+                if (ConversationManager.Instance != null)
+                {
+                    // Start conversation using data from the specific NPC.
+                    // Corrected argument order and type for NPC Name:
+                    ConversationManager.Instance.StartConversation(
+                        npcTrigger.GetConversationNodes(),
+                        npcTrigger.GetNPCName(),        // Pass the NPC name (string)
+                        npcTrigger.GetNPCPortrait(),    // Pass the NPC portrait (Sprite)
+                        npcTrigger,                     // Pass the NPCConversationTrigger object itself
+                        npcTrigger.GetStartNodeIndex()  // Pass the start node index (int)
+                    );
+                }
+                else
+                {
+                    Debug.LogWarning("PlayerController: ConversationManager.Instance is not found in the scene! Make sure it's set up.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("PlayerController: Collided with NPC tagged object, but no NPCConversationTrigger found on it: " + other.gameObject.name);
+            }
+        }
     }
 }
