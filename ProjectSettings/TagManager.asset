@@ -9,6 +9,7 @@ TagManager:
   - NPCChat
   - PlayerChat
   - Collectable
+  - Objects
   layers:
   - Default
   - TransparentFX
@@ -19,7 +20,7 @@ TagManager:
   - Player
   - NPC
   - Collectable
-  - 
+  - Objects
   - 
   - 
   - 
@@ -52,11 +53,14 @@ TagManager:
   - name: NPC
     uniqueID: 1360610913
     locked: 0
+  - name: Objects
+    uniqueID: 3217440979
+    locked: 0
   - name: Player
     uniqueID: 448867469
     locked: 0
-  - name: Objects
-    uniqueID: 3217440979
+  - name: Objects_Foreground
+    uniqueID: 834573331
     locked: 0
   - name: Collision
     uniqueID: 1227806321
