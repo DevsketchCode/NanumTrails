@@ -56,14 +56,14 @@ TagManager:
   - name: Objects
     uniqueID: 3217440979
     locked: 0
+  - name: Collision
+    uniqueID: 1227806321
+    locked: 0
   - name: Player
     uniqueID: 448867469
     locked: 0
   - name: Objects_Foreground
     uniqueID: 834573331
-    locked: 0
-  - name: Collision
-    uniqueID: 1227806321
     locked: 0
   m_RenderingLayers:
   - Default

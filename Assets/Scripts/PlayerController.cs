@@ -55,8 +55,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField]
     private ConversationManager _conversationManager; // Reference to the ConversationManager
 
-    // Stores the current movement input, combined from all sources.
-    private Vector2 _currentMovementInput;
+    // Stores the current raw movement input, combined from all sources (for animator check).
+    private Vector2 _currentRawInput; // Renamed for clarity
 
     // Boolean to control if player movement is currently enabled (e.g., paused during conversation).
     private bool _isMovementEnabled = true;
@@ -125,7 +125,7 @@ public class PlayerController : MonoBehaviour
         if (!enabled)
         {
             // Stop movement immediately if disabled.
-            _currentMovementInput = Vector2.zero;
+            _currentRawInput = Vector2.zero; // Clear input
             _animator.SetBool(IsMovingHash, false); // Stop walking animation
         }
     }
@@ -145,88 +145,89 @@ public class PlayerController : MonoBehaviour
         // If movement is disabled, prevent any input processing for movement.
         if (!_isMovementEnabled)
         {
-            _currentMovementInput = Vector2.zero; // Ensure no lingering input
+            _currentRawInput = Vector2.zero; // Ensure no lingering input
             _animator.SetBool(IsMovingHash, false); // Ensure idle animation
             return;
         }
 
         // --- Input Gathering ---
-        // Get input from keyboard/gamepad via Input Actions.
         Vector2 inputFromInputActions = _playerInputActions.Player.Move.ReadValue<Vector2>();
-
-        // Get input from the VariableJoystick only if _useJoystickInput is true and joystick reference is set.
         Vector2 inputFromJoystick = Vector2.zero;
+
         if (_useJoystickInput && _variableJoystick != null)
         {
             inputFromJoystick = _variableJoystick.Direction;
         }
 
-        // Combine inputs: Joystick input takes precedence if it's active AND enabled via _useJoystickInput.
-        _currentMovementInput = inputFromJoystick != Vector2.zero ? inputFromJoystick : inputFromInputActions;
+        Vector3 finalMoveDirection = Vector3.zero;
 
-        // Set IsMoving animator parameter.
-        // If there's any combined input, the player is moving.
-        _animator.SetBool(IsMovingHash, _currentMovementInput != Vector2.zero);
+        // Prioritize joystick input if it's active and has a non-zero direction
+        if (_useJoystickInput && inputFromJoystick != Vector2.zero)
+        {
+            // Joystick uses standard cardinal movement
+            finalMoveDirection = new Vector3(inputFromJoystick.x, inputFromJoystick.y, 0);
+            _currentRawInput = inputFromJoystick; // Store for animator check
+        }
+        else // Fallback to keyboard/gamepad input
+        {
+            // Keyboard/gamepad uses isometric movement
+            Vector2 rawInput = inputFromInputActions;
+
+            float isoX = (rawInput.x * 2) + (rawInput.y * 2);
+            float isoY = (rawInput.x * -1) + (rawInput.y * 1);
+
+            finalMoveDirection = new Vector3(isoX, isoY, 0);
+
+            // Apply angle bias if specified.
+            if (_isometricAngleBias != 0.0f)
+            {
+                Quaternion rotation = Quaternion.Euler(0, 0, _isometricAngleBias);
+                finalMoveDirection = rotation * finalMoveDirection;
+            }
+            _currentRawInput = inputFromInputActions; // Store for animator check
+        }
+
+        // Set IsMoving animator parameter based on whether there's any active input.
+        _animator.SetBool(IsMovingHash, _currentRawInput != Vector2.zero);
 
         // If no movement input, stop further movement calculations.
-        if (_currentMovementInput == Vector2.zero)
+        if (finalMoveDirection == Vector3.zero) // Check the actual calculated movement direction
         {
             return;
         }
 
-        // Get the raw 2D input vector (which is now combined).
-        Vector2 rawInput = _currentMovementInput;
-
-        // Apply isometric transformation for a 1:2 slope.
-        float isoX = (rawInput.x * 2) + (rawInput.y * 2);
-        float isoY = (rawInput.x * -1) + (rawInput.y * 1);
-
-        // Create the initial isometric movement direction vector.
-        Vector3 isometricMoveDirection = new Vector3(isoX, isoY, 0);
-
-        // Apply angle bias if specified.
-        if (_isometricAngleBias != 0.0f)
-        {
-            Quaternion rotation = Quaternion.Euler(0, 0, _isometricAngleBias);
-            isometricMoveDirection = rotation * isometricMoveDirection;
-        }
-
         // Normalize the vector for consistent speed.
-        isometricMoveDirection.Normalize();
+        finalMoveDirection.Normalize();
 
         // Calculate movement amount.
-        Vector3 movement = isometricMoveDirection * _moveSpeed * _tileUnitSize * Time.fixedDeltaTime;
+        Vector3 movement = finalMoveDirection * _moveSpeed * _tileUnitSize * Time.fixedDeltaTime;
 
         // Apply movement using Rigidbody2D.MovePosition for proper collision.
         _rb.MovePosition(_rb.position + (Vector2)movement);
 
         // --- Sprite Flipping and Animation Update ---
-        UpdateSpriteDirection(isometricMoveDirection);
+        UpdateSpriteDirection(finalMoveDirection); // Use the actual movement direction for sprite logic
     }
 
     /// <summary>
     /// Updates the player's sprite direction (flipX) and animation state
     /// based on the isometric movement direction.
     /// </summary>
-    /// <param name="direction">The normalized isometric movement direction.</param>
+    /// <param name="direction">The normalized movement direction (can be isometric or cardinal).</param>
     private void UpdateSpriteDirection(Vector3 direction)
     {
-        // Determine horizontal flip based on isometric X component.
-        // If moving left-ish on screen (isometric X is negative), flip the sprite.
-        // If moving right-ish on screen (isometric X is positive), don't flip.
+        // Determine horizontal flip based on the X component of the movement direction.
         if (direction.x < 0)
         {
-            _spriteRenderer.flipX = true; // Flip to face left-front
+            _spriteRenderer.flipX = true; // Flip to face left
         }
         else if (direction.x > 0)
         {
-            _spriteRenderer.flipX = false; // Face right-front
+            _spriteRenderer.flipX = false; // Face right
         }
-        // If direction.x is 0 (pure up/down input), maintain last horizontal flip.
+        // If direction.x is 0, maintain last horizontal flip.
 
-        // Determine animation state based on isometric Y component.
-        // If moving up-ish on screen (isometric Y is positive), use backward-looking animation.
-        // If moving down-ish on screen (isometric Y is negative), use forward-looking animation.
+        // Determine animation state based on the Y component of the movement direction.
         if (direction.y > 0)
         {
             _animator.SetBool(IsFacingBackwardHash, true); // Player is moving "up" the screen
@@ -235,7 +236,7 @@ public class PlayerController : MonoBehaviour
         {
             _animator.SetBool(IsFacingBackwardHash, false); // Player is moving "down" the screen
         }
-        // If direction.y is 0 (pure left/right input), maintain last vertical animation state.
+        // If direction.y is 0, maintain last vertical animation state.
     }
 
     /// <summary>
@@ -257,7 +258,6 @@ public class PlayerController : MonoBehaviour
                 if (ConversationManager.Instance != null)
                 {
                     // Start conversation using data from the specific NPC.
-                    // Corrected argument order and type for NPC Name:
                     ConversationManager.Instance.StartConversation(
                         npcTrigger.GetConversationNodes(),
                         npcTrigger.GetNPCName(),        // Pass the NPC name (string)
