@@ -45,7 +45,7 @@ public class ConversationManager : MonoBehaviour
     // Private fields to hold the currently active conversation and NPC portrait.
     private List<ConversationNode> _activeConversation;
     private Sprite _activeNpcPortrait;
-    private string _activeNpcName; // Corrected: Store the active NPC's name as a string
+    private string _activeNpcName; // Store the active NPC's name as a string
     private NPCConversationTrigger _activeNpcTrigger; // Reference to the NPC that started this conversation
 
     // Current index in the active conversation nodes list.
@@ -149,7 +149,7 @@ public class ConversationManager : MonoBehaviour
     /// Starts a new conversation with the provided data and NPC portrait.
     /// </summary>
     /// <param name="conversationData">The list of conversation nodes for this specific NPC.</param>
-    /// <param name="npcName">The name of the NPC speaking (as a string).</param> // Corrected: Parameter type is string
+    /// <param name="npcName">The name of the NPC speaking (as a string).</param>
     /// <param name="npcPortrait">The portrait sprite for the NPC speaking.</param>
     /// <param name="npcTrigger">The NPCConversationTrigger that initiated this conversation.</param>
     /// <param name="startNodeIndex">The index of the first conversation node to display (defaults to 0).</param>
@@ -342,7 +342,7 @@ public class ConversationManager : MonoBehaviour
         {
             if (InventoryManager.Instance.RemoveItem(requiredItem))
             {
-                _activeNpcTrigger.SetQuestCompleted(true);
+                _activeNpcTrigger.SetQuestCompleted(true); // This will now also add to friends via NPCConversationTrigger
                 Debug.Log($"Quest item '{requiredItem.ItemName}' delivered to {_activeNpcTrigger.gameObject.name}. Quest completed!");
                 _activeNpcTrigger.TriggerQuestCompletionAction(); // Trigger the custom action
                 EndConversation(); // End conversation after successful delivery

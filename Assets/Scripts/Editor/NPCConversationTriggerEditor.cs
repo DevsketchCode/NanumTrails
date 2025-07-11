@@ -14,6 +14,8 @@ public class NPCConversationTriggerEditor : Editor
     private SerializedProperty _initialStartNodeIndexProp;
     private SerializedProperty _questAcceptedNodeIndexProp;
     private SerializedProperty _questCompletedNodeIndexProp;
+    private SerializedProperty _questNameProp; // New: SerializedProperty for quest name
+    private SerializedProperty _questSummaryProp; // New: SerializedProperty for quest summary
     private SerializedProperty _questItemRequiredProp;
     private SerializedProperty _onQuestCompletedActionProp;
     private SerializedProperty _hasQuestBeenAcceptedProp;
@@ -38,6 +40,8 @@ public class NPCConversationTriggerEditor : Editor
         _initialStartNodeIndexProp = serializedObject.FindProperty("_initialStartNodeIndex");
         _questAcceptedNodeIndexProp = serializedObject.FindProperty("_questAcceptedNodeIndex");
         _questCompletedNodeIndexProp = serializedObject.FindProperty("_questCompletedNodeIndex");
+        _questNameProp = serializedObject.FindProperty("_questName"); // Find the quest name property
+        _questSummaryProp = serializedObject.FindProperty("_questSummary"); // Find the quest summary property
         _questItemRequiredProp = serializedObject.FindProperty("_questItemRequired");
         _onQuestCompletedActionProp = serializedObject.FindProperty("_onQuestCompletedAction");
         _hasQuestBeenAcceptedProp = serializedObject.FindProperty("_hasQuestBeenAccepted");
@@ -46,6 +50,8 @@ public class NPCConversationTriggerEditor : Editor
         // Optional: Add debug logs to confirm properties are found
         if (_conversationNodesProp == null) Debug.LogError("NPCConversationTriggerEditor: _conversationNodes property not found!");
         if (_npcNameProp == null) Debug.LogError("NPCConversationTriggerEditor: _npcName property not found!"); // Debug check
+        if (_questNameProp == null) Debug.LogError("NPCConversationTriggerEditor: _questName property not found!"); // Debug check
+        if (_questSummaryProp == null) Debug.LogError("NPCConversationTriggerEditor: _questSummary property not found!"); // Debug check
         // ... (add similar checks for other properties if needed during debugging)
     }
 
@@ -63,13 +69,15 @@ public class NPCConversationTriggerEditor : Editor
         EditorGUILayout.PropertyField(_npcNameProp); // Draw the NPC name field
 
         EditorGUILayout.Space(); // Add some space for readability
-        //EditorGUILayout.LabelField("Conversation Start Nodes", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Conversation Start Nodes", EditorStyles.boldLabel); // Added label for clarity
         EditorGUILayout.PropertyField(_initialStartNodeIndexProp);
         EditorGUILayout.PropertyField(_questAcceptedNodeIndexProp);
         EditorGUILayout.PropertyField(_questCompletedNodeIndexProp);
 
         EditorGUILayout.Space();
-        //EditorGUILayout.LabelField("Quest Settings", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Quest Settings", EditorStyles.boldLabel); // Added label for clarity
+        EditorGUILayout.PropertyField(_questNameProp); // Draw the quest name field
+        EditorGUILayout.PropertyField(_questSummaryProp); // Draw the quest summary field
         EditorGUILayout.PropertyField(_questItemRequiredProp);
         EditorGUILayout.PropertyField(_onQuestCompletedActionProp);
         EditorGUILayout.PropertyField(_hasQuestBeenAcceptedProp);

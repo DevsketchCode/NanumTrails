@@ -55,6 +55,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField]
     private ConversationManager _conversationManager; // Reference to the ConversationManager
 
+    [Header("UI Integration")] // Consolidated UI Header
+    [Tooltip("Drag the QuestUI GameObject here from the scene.")]
+    [SerializeField]
+    private QuestUI _questUI; // Reference to the QuestUI script
+
     // Stores the current raw movement input, combined from all sources (for animator check).
     private Vector2 _currentRawInput; // Renamed for clarity
 
@@ -86,6 +91,11 @@ public class PlayerController : MonoBehaviour
             Debug.LogWarning("PlayerController: Player GameObject does not have 'Player' tag. Setting it now.");
             gameObject.tag = "Player";
         }
+
+        // Subscribe to the "OpenQuestLog", "OpenFriendsList", and "OpenInventory" actions.
+        _playerInputActions.Player.OpenQuestLog.performed += OnOpenQuestLog;
+        _playerInputActions.Player.OpenFriendsList.performed += OnOpenFriendsList; // Added subscription
+        _playerInputActions.Player.OpenInventory.performed += OnOpenInventory; // Added subscription
     }
 
     /// <summary>
@@ -111,6 +121,10 @@ public class PlayerController : MonoBehaviour
         if (_playerInputActions != null)
         {
             _playerInputActions.Player.Disable();
+            // Unsubscribe from the "OpenQuestLog", "OpenFriendsList", and "OpenInventory" actions to prevent memory leaks.
+            _playerInputActions.Player.OpenQuestLog.performed -= OnOpenQuestLog;
+            _playerInputActions.Player.OpenFriendsList.performed -= OnOpenFriendsList; // Added unsubscription
+            _playerInputActions.Player.OpenInventory.performed -= OnOpenInventory; // Added unsubscription
         }
     }
 
@@ -237,6 +251,65 @@ public class PlayerController : MonoBehaviour
             _animator.SetBool(IsFacingBackwardHash, false); // Player is moving "down" the screen
         }
         // If direction.y is 0, maintain last vertical animation state.
+    }
+
+    /// <summary>
+    /// Called when the "OpenQuestLog" input action is performed.
+    /// Toggles the visibility of the Quest UI.
+    /// </summary>
+    /// <param name="context">The Input Action callback context.</param>
+    private void OnOpenQuestLog(InputAction.CallbackContext context)
+    {
+        if (_questUI != null)
+        {
+            _questUI.ToggleQuestLog();
+            // Optionally, pause/resume player movement when quest log is opened/closed
+            // For now, conversation manager handles pausing, but you might want to extend this.
+            // SetMovementEnabled(!_questUI.IsQuestLogOpen());
+        }
+        else
+        {
+            Debug.LogWarning("PlayerController: QuestUI reference is not set. Cannot open quest log.");
+        }
+    }
+
+    /// <summary>
+    /// Called when the "OpenFriendsList" input action is performed.
+    /// Toggles the visibility of the Friends List UI.
+    /// </summary>
+    /// <param name="context">The Input Action callback context.</param>
+    private void OnOpenFriendsList(InputAction.CallbackContext context)
+    {
+        if (_questUI != null)
+        {
+            _questUI.ToggleFriendsList();
+            // Optionally, pause/resume player movement when friends list is opened/closed
+            // SetMovementEnabled(!_questUI.IsFriendsListOpen());
+        }
+        else
+        {
+            Debug.LogWarning("PlayerController: QuestUI reference is not set. Cannot open friends list.");
+        }
+    }
+
+    /// <summary>
+    /// Called when the "OpenInventory" input action is performed.
+    /// Toggles the visibility of the Inventory UI.
+    /// </summary>
+    /// <param name="context">The Input Action callback context.</param>
+    private void OnOpenInventory(InputAction.CallbackContext context)
+    {
+        Debug.Log("OnOpenInventory method called by Input System."); // Added Debug.Log
+        if (_questUI != null)
+        {
+            _questUI.ToggleInventory();
+            // Optionally, pause/resume player movement when inventory is opened/closed
+            // SetMovementEnabled(!_questUI.IsInventoryOpen());
+        }
+        else
+        {
+            Debug.LogWarning("PlayerController: QuestUI reference is not set. Cannot open inventory.");
+        }
     }
 
     /// <summary>

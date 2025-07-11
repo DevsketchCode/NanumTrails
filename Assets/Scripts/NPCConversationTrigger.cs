@@ -1,6 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
-using UnityEngine.Events;
+using UnityEngine.Events; // Required for UnityEvent
 // Removed TMPro using, as _npcName is now a string, not a TextMeshProUGUI component.
 
 /// <summary>
@@ -16,7 +16,7 @@ public class NPCConversationTrigger : MonoBehaviour
     [Tooltip("The portrait sprite to display for this specific NPC during conversation.")]
     [SerializeField] private Sprite _npcPortraitSprite;
     [Tooltip("The NPC's name to display in the chat box.")]
-    [SerializeField] private string _npcName = "NPC";
+    [SerializeField] private string _npcName = "NPC"; // Corrected: Changed to string for the NPC's name
 
     [Header("Conversation Start Nodes")]
     [Tooltip("The initial node index for this NPC's conversation when first interacted with.")]
@@ -27,6 +27,12 @@ public class NPCConversationTrigger : MonoBehaviour
     [SerializeField] private int _questCompletedNodeIndex = -1;
 
     [Header("Quest Settings")]
+    [Tooltip("The name of the quest given by this NPC.")]
+    [SerializeField] private string _questName = "New Quest"; // New: Quest name
+    [Tooltip("A brief summary of the quest given by this NPC.")]
+    [TextArea(3, 5)]
+    [SerializeField] private string _questSummary = "Find something for me."; // New: Quest summary
+
     [Tooltip("The ItemData of the item this NPC requests for a quest.")]
     [SerializeField] private ItemData _questItemRequired;
 
@@ -81,11 +87,16 @@ public class NPCConversationTrigger : MonoBehaviour
 
     /// <summary>
     /// Sets the quest acceptance status for this NPC.
+    /// If accepted, adds the quest to the QuestManager.
     /// </summary>
     /// <param name="accepted">True if the quest is accepted, false otherwise.</param>
     public void SetQuestAccepted(bool accepted)
     {
         _hasQuestBeenAccepted = accepted;
+        if (accepted && QuestManager.Instance != null)
+        {
+            QuestManager.Instance.AddQuest(_questName, _questSummary, _npcName);
+        }
     }
 
     /// <summary>
@@ -98,11 +109,17 @@ public class NPCConversationTrigger : MonoBehaviour
 
     /// <summary>
     /// Sets the quest completion status for this NPC.
+    /// If completed, marks the quest as complete in QuestManager and adds NPC to friends.
     /// </summary>
     /// <param name="completed">True if the quest is completed, false otherwise.</param>
     public void SetQuestCompleted(bool completed)
     {
         _hasQuestBeenCompleted = completed;
+        if (completed && QuestManager.Instance != null)
+        {
+            QuestManager.Instance.CompleteQuest(_questName, _npcName);
+            QuestManager.Instance.AddFriend(_npcName); // Add NPC to friends list upon quest completion
+        }
     }
 
     /// <summary>

@@ -1,188 +1,151 @@
 using UnityEngine;
-using System.Collections.Generic; // For List<T>
-using System; // For Action event
+using System.Collections.Generic;
+using System.Linq; // Required for LINQ operations like ToList()
 
 /// <summary>
-/// Manages the player's inventory. Singleton pattern.
-/// Handles adding, removing, and checking for items.
+/// Manages the player's inventory.
+/// This is a singleton that can be accessed from anywhere.
+/// Stores items as ItemData ScriptableObjects with their quantities.
 /// </summary>
 public class InventoryManager : MonoBehaviour
 {
     public static InventoryManager Instance { get; private set; }
 
-    // Represents an item within the inventory with its quantity.
-    [System.Serializable]
-    public class InventoryItem
-    {
-        public ItemData ItemData;
-        public int Quantity;
+    // Internal storage for items: ItemData (the ScriptableObject) mapped to its quantity.
+    private Dictionary<ItemData, int> _inventoryContents = new Dictionary<ItemData, int>();
 
-        public InventoryItem(ItemData data, int quantity = 1)
-        {
-            ItemData = data;
-            Quantity = quantity;
-        }
-    }
-
-    [Tooltip("The list of items currently in the player's inventory.")]
-    [SerializeField]
-    private List<InventoryItem> _inventory = new List<InventoryItem>();
-
-    // Event for when the inventory changes (useful for UI updates, though not directly used in this quest logic).
-    public event Action OnInventoryChanged;
-
+    /// <summary>
+    /// Called when the script instance is being loaded.
+    /// Initializes the singleton.
+    /// </summary>
     private void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
-            // Optional: DontDestroyOnLoad(gameObject); // Persist inventory across scenes
+            // Optional: DontDestroyOnLoad(gameObject); // If you want the manager to persist across scenes.
         }
         else
         {
             Destroy(gameObject);
+            return;
         }
     }
 
     /// <summary>
-    /// Adds an item to the inventory.
+    /// Adds a specified quantity of an item to the inventory.
     /// </summary>
-    /// <param name="itemData">The ItemData of the item to add.</param>
-    /// <param name="quantity">The amount to add.</param>
-    /// <returns>True if item was added successfully, false otherwise (e.g., inventory full, not implemented).</returns>
-    public bool AddItem(ItemData itemData, int quantity = 1)
+    /// <param name="itemData">The ItemData ScriptableObject to add.</param>
+    /// <param name="quantity">The amount of the item to add.</param>
+    /// <returns>True if the item was successfully added, false otherwise.</returns>
+    public bool AddItem(ItemData itemData, int quantity = 1) // This is the method overload needed
     {
-        if (itemData == null || quantity <= 0)
+        if (itemData == null)
         {
-            Debug.LogWarning("Attempted to add invalid item or quantity.");
+            Debug.LogWarning("InventoryManager: Attempted to add a null ItemData.");
+            return false;
+        }
+        if (quantity <= 0)
+        {
+            Debug.LogWarning($"InventoryManager: Attempted to add non-positive quantity ({quantity}) of {itemData.ItemName}.");
             return false;
         }
 
-        // For simplicity, let's assume items don't stack for now unless they are the same exact ItemData object.
-        // You would typically add stacking logic here (e.g., find existing stack and increment quantity).
-        foreach (var item in _inventory)
+        if (_inventoryContents.ContainsKey(itemData))
         {
-            if (item.ItemData == itemData)
-            {
-                item.Quantity += quantity;
-                Debug.Log($"Added {quantity} x {itemData.ItemName}. Total: {item.Quantity}");
-                OnInventoryChanged?.Invoke();
-                return true;
-            }
+            _inventoryContents[itemData] += quantity;
+        }
+        else
+        {
+            _inventoryContents.Add(itemData, quantity);
         }
 
-        // If not found, add new entry.
-        _inventory.Add(new InventoryItem(itemData, quantity));
-        Debug.Log($"Added new item: {itemData.ItemName}. Quantity: {quantity}");
-        OnInventoryChanged?.Invoke();
+        Debug.Log($"Added {quantity} x {itemData.ItemName} to inventory. Total: {_inventoryContents[itemData]}");
+
+        // Notify QuestUI to update display and show icon if inventory is no longer empty
+        if (QuestUI.Instance != null)
+        {
+            QuestUI.Instance.UpdateInventoryDisplay();
+            QuestUI.Instance.ShowInventoryIcon(); // Show icon when an item is added
+        }
         return true;
     }
 
     /// <summary>
-    /// Removes an item from the inventory.
+    /// Removes a specified quantity of an item from the inventory.
     /// </summary>
-    /// <param name="itemData">The ItemData of the item to remove.</param>
-    /// <param name="quantity">The amount to remove.</param>
-    /// <returns>True if item was removed successfully, false if not found or not enough quantity.</returns>
+    /// <param name="itemData">The ItemData ScriptableObject to remove.</param>
+    /// <param name="quantity">The amount of the item to remove (defaults to 1).</param>
+    /// <returns>True if the item was successfully removed, false otherwise.</returns>
     public bool RemoveItem(ItemData itemData, int quantity = 1)
     {
-        if (itemData == null || quantity <= 0)
+        if (itemData == null)
         {
-            Debug.LogWarning("Attempted to remove invalid item or quantity.");
+            Debug.LogWarning("InventoryManager: Attempted to remove a null ItemData.");
+            return false;
+        }
+        if (quantity <= 0)
+        {
+            Debug.LogWarning($"InventoryManager: Attempted to remove non-positive quantity ({quantity}) of {itemData.ItemName}.");
             return false;
         }
 
-        InventoryItem itemToRemove = null;
-        foreach (var item in _inventory)
+        if (_inventoryContents.ContainsKey(itemData))
         {
-            if (item.ItemData == itemData)
+            _inventoryContents[itemData] -= quantity;
+            if (_inventoryContents[itemData] <= 0)
             {
-                itemToRemove = item;
-                break;
+                _inventoryContents.Remove(itemData);
             }
-        }
+            Debug.Log($"Removed {quantity} x {itemData.ItemName} from inventory.");
 
-        if (itemToRemove != null)
-        {
-            if (itemToRemove.Quantity >= quantity)
+            // Notify QuestUI to update display
+            if (QuestUI.Instance != null)
             {
-                itemToRemove.Quantity -= quantity;
-                Debug.Log($"Removed {quantity} x {itemData.ItemName}. Remaining: {itemToRemove.Quantity}");
-                if (itemToRemove.Quantity <= 0)
+                QuestUI.Instance.UpdateInventoryDisplay();
+                // Hide icon if inventory becomes empty
+                if (_inventoryContents.Count == 0)
                 {
-                    _inventory.Remove(itemToRemove);
-                    Debug.Log($"{itemData.ItemName} removed completely from inventory.");
+                    QuestUI.Instance.HideInventoryIcon();
                 }
-                OnInventoryChanged?.Invoke();
-                return true;
             }
-            else
-            {
-                Debug.LogWarning($"Not enough {itemData.ItemName} to remove {quantity}. Only {itemToRemove.Quantity} available.");
-                return false;
-            }
+            return true;
         }
         else
         {
-            Debug.LogWarning($"Attempted to remove {itemData.ItemName} but it was not found in inventory.");
+            Debug.LogWarning($"InventoryManager: Item '{itemData.ItemName}' not found in inventory to remove.");
             return false;
         }
     }
 
     /// <summary>
-    /// Checks if the player has a specific item and quantity in their inventory.
+    /// Checks if the inventory contains at least one of a specific item.
     /// </summary>
-    /// <param name="itemData">The ItemData to check for.</param>
-    /// <param name="requiredQuantity">The minimum quantity required.</param>
-    /// <returns>True if the item is present with at least the required quantity, false otherwise.</returns>
-    public bool HasItem(ItemData itemData, int requiredQuantity = 1)
+    /// <param name="itemData">The ItemData ScriptableObject to check for.</param>
+    /// <returns>True if the item is found, false otherwise.</returns>
+    public bool HasItem(ItemData itemData)
     {
-        if (itemData == null || requiredQuantity <= 0) return false;
-
-        foreach (var item in _inventory)
-        {
-            if (item.ItemData == itemData && item.Quantity >= requiredQuantity)
-            {
-                return true;
-            }
-        }
-        return false;
+        if (itemData == null) return false;
+        return _inventoryContents.ContainsKey(itemData) && _inventoryContents[itemData] > 0;
     }
 
     /// <summary>
-    /// Gets the current quantity of a specific item in the inventory.
+    /// Gets the quantity of a specific item in the inventory.
     /// </summary>
-    /// <param name="itemData">The ItemData to get the quantity for.</param>
+    /// <param name="itemData">The ItemData ScriptableObject to check.</param>
     /// <returns>The quantity of the item, or 0 if not found.</returns>
     public int GetItemQuantity(ItemData itemData)
     {
         if (itemData == null) return 0;
-
-        foreach (var item in _inventory)
-        {
-            if (item.ItemData == itemData)
-            {
-                return item.Quantity;
-            }
-        }
-        return 0;
+        _inventoryContents.TryGetValue(itemData, out int quantity);
+        return quantity;
     }
 
-    // Optional: For debugging purposes, you can call this via a button in the Inspector
-    [ContextMenu("Log Inventory")]
-    public void LogInventory()
+    /// <summary>
+    /// Gets a read-only dictionary of all items currently in the inventory with their quantities.
+    /// </summary>
+    public IReadOnlyDictionary<ItemData, int> GetInventoryContents()
     {
-        if (_inventory.Count == 0)
-        {
-            Debug.Log("Inventory is empty.");
-            return;
-        }
-
-        string log = "Current Inventory:\n";
-        foreach (var item in _inventory)
-        {
-            log += $"- {item.ItemData.ItemName} (ID: {item.ItemData.ItemID}), Quantity: {item.Quantity}\n";
-        }
-        Debug.Log(log);
+        return _inventoryContents;
     }
 }

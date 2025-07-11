@@ -9,7 +9,7 @@ public class CollectableItem : MonoBehaviour
 {
     [Tooltip("The ItemData ScriptableObject that this collectable represents.")]
     [SerializeField]
-    private ItemData _itemData;
+    private ItemData _itemData; // Corrected: Now references the top-level ItemData ScriptableObject
 
     [Tooltip("The quantity of the item to add to inventory when collected.")]
     [SerializeField]
@@ -44,6 +44,7 @@ public class CollectableItem : MonoBehaviour
 
             if (InventoryManager.Instance != null)
             {
+                // Corrected: AddItem now takes ItemData and quantity
                 if (InventoryManager.Instance.AddItem(_itemData, _quantity))
                 {
                     Debug.Log($"Player collected {_quantity} x {_itemData.ItemName}.");
@@ -78,6 +79,7 @@ public class CollectableItem : MonoBehaviour
                 Gizmos.DrawWireSphere(circle.bounds.center, circle.radius);
             }
         }
+        // Corrected: ItemIcon is now directly on ItemData
         if (_itemData != null && _itemData.ItemIcon != null)
         {
             Gizmos.DrawIcon(transform.position + Vector3.up * 0.5f, _itemData.ItemIcon.name, true);

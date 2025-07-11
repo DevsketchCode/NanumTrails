@@ -122,7 +122,7 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""name"": ""Interact"",
                     ""type"": ""Button"",
                     ""id"": ""852140f2-7766-474d-8707-702459ba45f3"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": ""Hold"",
                     ""initialStateCheck"": false
@@ -168,6 +168,33 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""type"": ""Button"",
                     ""id"": ""641cd816-40e6-41b4-8c3d-04687c349290"",
                     ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""OpenQuestLog"",
+                    ""type"": ""Button"",
+                    ""id"": ""51e68bc0-9baa-429d-8721-a61934734abd"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""OpenFriendsList"",
+                    ""type"": ""Button"",
+                    ""id"": ""42d2de18-c3aa-440f-b39a-ab522e878d39"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""OpenInventory"",
+                    ""type"": ""Button"",
+                    ""id"": ""1c9e5448-e6cb-4ee3-b799-cecd28ca60d1"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
@@ -556,6 +583,39 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""groups"": ""Keyboard&Mouse"",
                     ""action"": ""Crouch"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""d619e6b8-0105-4f46-88ac-35a234876a17"",
+                    ""path"": ""<Keyboard>/q"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Keyboard&Mouse;Touch"",
+                    ""action"": ""OpenQuestLog"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""ec4fac40-b35e-4416-8d68-7d5e3b67268d"",
+                    ""path"": ""<Keyboard>/f"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Keyboard&Mouse;Touch"",
+                    ""action"": ""OpenFriendsList"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""b00de3aa-f571-4ce4-9071-c94782e7601c"",
+                    ""path"": ""<Keyboard>/i"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Keyboard&Mouse;Touch"",
+                    ""action"": ""OpenInventory"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -1152,6 +1212,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Player_Previous = m_Player.FindAction("Previous", throwIfNotFound: true);
         m_Player_Next = m_Player.FindAction("Next", throwIfNotFound: true);
         m_Player_Sprint = m_Player.FindAction("Sprint", throwIfNotFound: true);
+        m_Player_OpenQuestLog = m_Player.FindAction("OpenQuestLog", throwIfNotFound: true);
+        m_Player_OpenFriendsList = m_Player.FindAction("OpenFriendsList", throwIfNotFound: true);
+        m_Player_OpenInventory = m_Player.FindAction("OpenInventory", throwIfNotFound: true);
         // UI
         m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
         m_UI_Navigate = m_UI.FindAction("Navigate", throwIfNotFound: true);
@@ -1254,6 +1317,9 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_Previous;
     private readonly InputAction m_Player_Next;
     private readonly InputAction m_Player_Sprint;
+    private readonly InputAction m_Player_OpenQuestLog;
+    private readonly InputAction m_Player_OpenFriendsList;
+    private readonly InputAction m_Player_OpenInventory;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
     /// </summary>
@@ -1301,6 +1367,18 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Player/Sprint".
         /// </summary>
         public InputAction @Sprint => m_Wrapper.m_Player_Sprint;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/OpenQuestLog".
+        /// </summary>
+        public InputAction @OpenQuestLog => m_Wrapper.m_Player_OpenQuestLog;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/OpenFriendsList".
+        /// </summary>
+        public InputAction @OpenFriendsList => m_Wrapper.m_Player_OpenFriendsList;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/OpenInventory".
+        /// </summary>
+        public InputAction @OpenInventory => m_Wrapper.m_Player_OpenInventory;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -1354,6 +1432,15 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Sprint.started += instance.OnSprint;
             @Sprint.performed += instance.OnSprint;
             @Sprint.canceled += instance.OnSprint;
+            @OpenQuestLog.started += instance.OnOpenQuestLog;
+            @OpenQuestLog.performed += instance.OnOpenQuestLog;
+            @OpenQuestLog.canceled += instance.OnOpenQuestLog;
+            @OpenFriendsList.started += instance.OnOpenFriendsList;
+            @OpenFriendsList.performed += instance.OnOpenFriendsList;
+            @OpenFriendsList.canceled += instance.OnOpenFriendsList;
+            @OpenInventory.started += instance.OnOpenInventory;
+            @OpenInventory.performed += instance.OnOpenInventory;
+            @OpenInventory.canceled += instance.OnOpenInventory;
         }
 
         /// <summary>
@@ -1392,6 +1479,15 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Sprint.started -= instance.OnSprint;
             @Sprint.performed -= instance.OnSprint;
             @Sprint.canceled -= instance.OnSprint;
+            @OpenQuestLog.started -= instance.OnOpenQuestLog;
+            @OpenQuestLog.performed -= instance.OnOpenQuestLog;
+            @OpenQuestLog.canceled -= instance.OnOpenQuestLog;
+            @OpenFriendsList.started -= instance.OnOpenFriendsList;
+            @OpenFriendsList.performed -= instance.OnOpenFriendsList;
+            @OpenFriendsList.canceled -= instance.OnOpenFriendsList;
+            @OpenInventory.started -= instance.OnOpenInventory;
+            @OpenInventory.performed -= instance.OnOpenInventory;
+            @OpenInventory.canceled -= instance.OnOpenInventory;
         }
 
         /// <summary>
@@ -1755,6 +1851,27 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnSprint(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "OpenQuestLog" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnOpenQuestLog(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "OpenFriendsList" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnOpenFriendsList(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "OpenInventory" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnOpenInventory(InputAction.CallbackContext context);
     }
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "UI" which allows adding and removing callbacks.
