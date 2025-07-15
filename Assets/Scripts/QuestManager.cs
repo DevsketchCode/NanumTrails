@@ -35,6 +35,9 @@ public class QuestManager : MonoBehaviour
     // List to store the names of befriended NPCs.
     private List<string> _friends = new List<string>();
 
+    // NEW: List to keep track of NPCs currently following the player, in order.
+    private List<NPCFollower> _activeFollowers = new List<NPCFollower>();
+
     /// <summary>
     /// Called when the script instance is being loaded.
     /// Initializes the singleton.
@@ -117,7 +120,7 @@ public class QuestManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Adds an NPC's name to the "Friends" list.
+    /// Adds an NPC's name to the "Friends" list (original overload).
     /// </summary>
     /// <param name="friendName">The name of the NPC to add as a friend.</param>
     public void AddFriend(string friendName)
@@ -139,6 +142,51 @@ public class QuestManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Adds an NPC's name to the "Friends" list and optionally sets them to follow in a chain (NEW overload).
+    /// </summary>
+    /// <param name="friendName">The name of the NPC to add as a friend.</param>
+    /// <param name="npcFollower">The NPCFollower component of the friend, if they should follow.</param>
+    public void AddFriend(string friendName, NPCFollower npcFollower) // NEW: This overload takes NPCFollower
+    {
+        // Call the original AddFriend method to handle the basic friend list addition
+        AddFriend(friendName);
+
+        // Now handle the following logic if an NPCFollower component was provided
+        if (npcFollower != null && PlayerController.Instance != null)
+        {
+            // Prevent adding the same follower multiple times to the active followers list
+            if (!_activeFollowers.Contains(npcFollower))
+            {
+                Transform leader = null;
+                if (_activeFollowers.Count == 0)
+                {
+                    // First NPC in the chain follows the player
+                    leader = PlayerController.Instance.transform;
+                    Debug.Log($"NPC {friendName} (first in chain) is now following Player.");
+                }
+                else
+                {
+                    // Subsequent NPCs follow the last NPC in the chain
+                    leader = _activeFollowers.Last().transform;
+                    Debug.Log($"NPC {friendName} is now following {_activeFollowers.Last().name}.");
+                }
+
+                npcFollower.SetLeader(leader); // Set the leader for this NPCFollower
+                npcFollower.StartFollowing();  // Start this NPC following
+                _activeFollowers.Add(npcFollower); // Add this NPC to the active followers list
+            }
+            else
+            {
+                Debug.LogWarning($"NPCFollower for {friendName} is already in the active followers list.");
+            }
+        }
+        else if (npcFollower != null && PlayerController.Instance == null)
+        {
+            Debug.LogWarning($"QuestManager: Cannot set {friendName} to follow. PlayerController.Instance is null.");
+        }
+    }
+
+    /// <summary>
     /// Gets a read-only list of all quests (active and completed).
     /// </summary>
     public IReadOnlyList<Quest> GetAllQuests()
@@ -152,5 +200,13 @@ public class QuestManager : MonoBehaviour
     public IReadOnlyList<string> GetFriends()
     {
         return _friends.AsReadOnly();
+    }
+
+    /// <summary>
+    /// Returns a read-only list of NPCFollowers currently active in the following chain.
+    /// </summary>
+    public IReadOnlyList<NPCFollower> GetActiveFollowers() // NEW: Getter for active followers
+    {
+        return _activeFollowers.AsReadOnly();
     }
 }

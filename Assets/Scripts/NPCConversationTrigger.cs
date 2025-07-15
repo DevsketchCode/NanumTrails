@@ -39,11 +39,29 @@ public class NPCConversationTrigger : MonoBehaviour
     [Tooltip("Action to trigger when the quest is successfully completed (item delivered).")]
     [SerializeField] private UnityEvent _onQuestCompletedAction;
 
+    [Header("Following Settings")] // NEW: Header for following
+    [Tooltip("Reference to the NPCFollower component on this NPC, if it should follow the player after quest completion.")]
+    [SerializeField] private NPCFollower _npcFollower;
+    [Tooltip("If true, this NPC will start following the player (or the preceding NPC) when their quest is completed.")]
+    [SerializeField] private bool _shouldFollowPlayerOnQuestComplete = false;
+
     // Quest state variables.
     [Tooltip("Internal: Has the quest from this NPC been accepted by the player?")]
     [SerializeField] private bool _hasQuestBeenAccepted = false;
     [Tooltip("Internal: Has the quest from this NPC been completed by the player?")]
     [SerializeField] private bool _hasQuestBeenCompleted = false;
+
+    /// <summary>
+    /// Called when the script instance is being loaded.
+    /// </summary>
+    private void Awake()
+    {
+        // Get the NPCFollower component if it exists on this GameObject
+        if (_npcFollower == null)
+        {
+            _npcFollower = GetComponent<NPCFollower>();
+        }
+    }
 
     /// <summary>
     /// Returns the conversation data for this NPC.
@@ -118,7 +136,22 @@ public class NPCConversationTrigger : MonoBehaviour
         if (completed && QuestManager.Instance != null)
         {
             QuestManager.Instance.CompleteQuest(_questName, _npcName);
-            QuestManager.Instance.AddFriend(_npcName); // Add NPC to friends list upon quest completion
+
+            // NEW: Pass the NPCFollower reference to QuestManager's AddFriend method
+            // QuestManager will now handle setting the leader for the NPCFollower.
+            if (_shouldFollowPlayerOnQuestComplete && _npcFollower != null)
+            {
+                QuestManager.Instance.AddFriend(_npcName, _npcFollower);
+            }
+            else if (_shouldFollowPlayerOnQuestComplete && _npcFollower == null)
+            {
+                Debug.LogWarning($"NPC {gameObject.name}: Should follow player, but NPCFollower component is missing!");
+                QuestManager.Instance.AddFriend(_npcName); // Still add to friends list even if no follower
+            }
+            else // If not set to follow, just add to friends list
+            {
+                QuestManager.Instance.AddFriend(_npcName);
+            }
         }
     }
 
@@ -136,6 +169,14 @@ public class NPCConversationTrigger : MonoBehaviour
     public void TriggerQuestCompletionAction()
     {
         _onQuestCompletedAction?.Invoke();
+    }
+
+    /// <summary>
+    /// Returns the NPCFollower component associated with this NPC.
+    /// </summary>
+    public NPCFollower GetNPCFollower()
+    {
+        return _npcFollower;
     }
 
     // Optional: Draw a gizmo in the editor to visualize the trigger area.

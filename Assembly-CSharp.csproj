@@ -64,6 +64,7 @@
     <Compile Include="Assets\Joystick Pack\Scripts\Joysticks\FloatingJoystick.cs" />
     <Compile Include="Assets\Scripts\PlayerController.cs" />
     <Compile Include="Assets\Scripts\UIManager.cs" />
+    <Compile Include="Assets\Scripts\FirepitTrigger.cs" />
     <Compile Include="Assets\Joystick Pack\Scripts\Joysticks\FixedJoystick.cs" />
     <Compile Include="Assets\Scripts\NPCConversationTrigger.cs" />
     <Compile Include="Assets\Scripts\ConversationManager.cs" />
@@ -76,6 +77,7 @@
     <Compile Include="Assets\Scripts\QuestManager.cs" />
     <Compile Include="Assets\Scripts\CollectableItem.cs" />
     <Compile Include="Assets\Scripts\QuestUI.cs" />
+    <Compile Include="Assets\Scripts\NPCFollower.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

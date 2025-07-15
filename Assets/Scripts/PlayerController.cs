@@ -13,6 +13,8 @@ using UnityEngine.InputSystem; // Required for the new Input System
 [RequireComponent(typeof(Animator))] // Ensures an Animator component is present for animations
 public class PlayerController : MonoBehaviour
 {
+    public static PlayerController Instance { get; private set; } // Singleton Instance
+
     // Reference to the generated InputSystem_Actions asset.
     private InputSystem_Actions _playerInputActions;
 
@@ -66,6 +68,9 @@ public class PlayerController : MonoBehaviour
     // Boolean to control if player movement is currently enabled (e.g., paused during conversation).
     private bool _isMovementEnabled = true;
 
+    // NEW: Store the last calculated movement velocity for external access (e.g., NPCFollower)
+    public Vector2 CurrentMovementVelocity { get; private set; }
+
     // Animator parameter hashes for efficiency (avoids string comparisons every frame).
     private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
     private static readonly int IsFacingBackwardHash = Animator.StringToHash("IsFacingBackward");
@@ -76,6 +81,17 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     private void Awake()
     {
+        if (Instance == null)
+        {
+            Instance = this;
+            // Optional: DontDestroyOnLoad(gameObject); // If you want the player to persist across scenes
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         // Create an instance of the generated InputSystem_Actions.
         _playerInputActions = new InputSystem_Actions();
 
@@ -94,8 +110,8 @@ public class PlayerController : MonoBehaviour
 
         // Subscribe to the "OpenQuestLog", "OpenFriendsList", and "OpenInventory" actions.
         _playerInputActions.Player.OpenQuestLog.performed += OnOpenQuestLog;
-        _playerInputActions.Player.OpenFriendsList.performed += OnOpenFriendsList; // Added subscription
-        _playerInputActions.Player.OpenInventory.performed += OnOpenInventory; // Added subscription
+        _playerInputActions.Player.OpenFriendsList.performed += OnOpenFriendsList;
+        _playerInputActions.Player.OpenInventory.performed += OnOpenInventory;
     }
 
     /// <summary>
@@ -123,8 +139,8 @@ public class PlayerController : MonoBehaviour
             _playerInputActions.Player.Disable();
             // Unsubscribe from the "OpenQuestLog", "OpenFriendsList", and "OpenInventory" actions to prevent memory leaks.
             _playerInputActions.Player.OpenQuestLog.performed -= OnOpenQuestLog;
-            _playerInputActions.Player.OpenFriendsList.performed -= OnOpenFriendsList; // Added unsubscription
-            _playerInputActions.Player.OpenInventory.performed -= OnOpenInventory; // Added unsubscription
+            _playerInputActions.Player.OpenFriendsList.performed -= OnOpenFriendsList;
+            _playerInputActions.Player.OpenInventory.performed -= OnOpenInventory;
         }
     }
 
@@ -141,6 +157,8 @@ public class PlayerController : MonoBehaviour
             // Stop movement immediately if disabled.
             _currentRawInput = Vector2.zero; // Clear input
             _animator.SetBool(IsMovingHash, false); // Stop walking animation
+            _rb.velocity = Vector2.zero; // Ensure rigidbody stops (though MovePosition is used)
+            CurrentMovementVelocity = Vector2.zero; // NEW: Reset exposed velocity
         }
     }
 
@@ -161,6 +179,8 @@ public class PlayerController : MonoBehaviour
         {
             _currentRawInput = Vector2.zero; // Ensure no lingering input
             _animator.SetBool(IsMovingHash, false); // Ensure idle animation
+            _rb.velocity = Vector2.zero; // Ensure player is fully stopped
+            CurrentMovementVelocity = Vector2.zero; // NEW: Reset exposed velocity
             return;
         }
 
@@ -171,6 +191,13 @@ public class PlayerController : MonoBehaviour
         if (_useJoystickInput && _variableJoystick != null)
         {
             inputFromJoystick = _variableJoystick.Direction;
+        }
+
+        // Re-enabled logs for debugging input and velocity
+        Debug.Log($"PlayerController: Raw Input (Keyboard/Gamepad) = {inputFromInputActions}");
+        if (_useJoystickInput)
+        {
+            Debug.Log($"PlayerController: Raw Input (Joystick) = {inputFromJoystick}");
         }
 
         Vector3 finalMoveDirection = Vector3.zero;
@@ -201,12 +228,18 @@ public class PlayerController : MonoBehaviour
             _currentRawInput = inputFromInputActions; // Store for animator check
         }
 
+        // Re-enabled log for debugging final move direction
+        Debug.Log($"PlayerController: Final Move Direction (Before Normalize) = {finalMoveDirection}");
+
         // Set IsMoving animator parameter based on whether there's any active input.
         _animator.SetBool(IsMovingHash, _currentRawInput != Vector2.zero);
 
         // If no movement input, stop further movement calculations.
         if (finalMoveDirection == Vector3.zero) // Check the actual calculated movement direction
         {
+            _rb.velocity = Vector2.zero; // Ensure player stops if no input
+            CurrentMovementVelocity = Vector2.zero; // NEW: Reset exposed velocity
+            Debug.Log("PlayerController: No movement input, setting velocity to zero.");
             return;
         }
 
@@ -219,13 +252,20 @@ public class PlayerController : MonoBehaviour
         // Apply movement using Rigidbody2D.MovePosition for proper collision.
         _rb.MovePosition(_rb.position + (Vector2)movement);
 
+        // NEW: Update the public CurrentMovementVelocity property
+        CurrentMovementVelocity = (Vector2)finalMoveDirection * _moveSpeed * _tileUnitSize; // Velocity in units/sec
+
+        // Re-enabled log for debugging the final calculated CurrentMovementVelocity
+        Debug.Log($"PlayerController: Calculated CurrentMovementVelocity = {CurrentMovementVelocity}");
+        Debug.Log($"PlayerController: Is Movement Enabled = {_isMovementEnabled}"); // NEW: Log the movement enabled state
+
         // --- Sprite Flipping and Animation Update ---
         UpdateSpriteDirection(finalMoveDirection); // Use the actual movement direction for sprite logic
     }
 
     /// <summary>
     /// Updates the player's sprite direction (flipX) and animation state
-    /// based on the isometric movement direction.
+    /// based on the movement direction.
     /// </summary>
     /// <param name="direction">The normalized movement direction (can be isometric or cardinal).</param>
     private void UpdateSpriteDirection(Vector3 direction)
@@ -299,7 +339,7 @@ public class PlayerController : MonoBehaviour
     /// <param name="context">The Input Action callback context.</param>
     private void OnOpenInventory(InputAction.CallbackContext context)
     {
-        Debug.Log("OnOpenInventory method called by Input System."); // Added Debug.Log
+        Debug.Log("OnOpenInventory method called by Input System.");
         if (_questUI != null)
         {
             _questUI.ToggleInventory();

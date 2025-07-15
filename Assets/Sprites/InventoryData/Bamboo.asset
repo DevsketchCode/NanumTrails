@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e141f11aa4a6bb84ca2a554b06b0f60f, type: 3}
+  m_Name: Bamboo
+  m_EditorClassIdentifier: 
+  ItemID: 000002
+  ItemName: Bamboo
+  ItemDescription: Pandas love to eat Bamboo
+  ItemIcon: {fileID: -1360983660, guid: 67b479866b9c93c44b66f9fd2ff9e5ff, type: 3}

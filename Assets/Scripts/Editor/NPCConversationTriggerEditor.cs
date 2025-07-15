@@ -14,10 +14,12 @@ public class NPCConversationTriggerEditor : Editor
     private SerializedProperty _initialStartNodeIndexProp;
     private SerializedProperty _questAcceptedNodeIndexProp;
     private SerializedProperty _questCompletedNodeIndexProp;
-    private SerializedProperty _questNameProp; // New: SerializedProperty for quest name
-    private SerializedProperty _questSummaryProp; // New: SerializedProperty for quest summary
+    private SerializedProperty _questNameProp; // SerializedProperty for quest name
+    private SerializedProperty _questSummaryProp; // SerializedProperty for quest summary
     private SerializedProperty _questItemRequiredProp;
     private SerializedProperty _onQuestCompletedActionProp;
+    private SerializedProperty _npcFollowerProp; // NEW: SerializedProperty for NPCFollower
+    private SerializedProperty _shouldFollowPlayerOnQuestCompleteProp; // NEW: SerializedProperty for shouldFollowPlayer
     private SerializedProperty _hasQuestBeenAcceptedProp;
     private SerializedProperty _hasQuestBeenCompletedProp;
 
@@ -36,23 +38,26 @@ public class NPCConversationTriggerEditor : Editor
 
         _conversationNodesProp = serializedObject.FindProperty("_conversationNodes");
         _npcPortraitSpriteProp = serializedObject.FindProperty("_npcPortraitSprite");
-        _npcNameProp = serializedObject.FindProperty("_npcName"); // Find the NPC name property
+        _npcNameProp = serializedObject.FindProperty("_npcName");
         _initialStartNodeIndexProp = serializedObject.FindProperty("_initialStartNodeIndex");
         _questAcceptedNodeIndexProp = serializedObject.FindProperty("_questAcceptedNodeIndex");
         _questCompletedNodeIndexProp = serializedObject.FindProperty("_questCompletedNodeIndex");
-        _questNameProp = serializedObject.FindProperty("_questName"); // Find the quest name property
-        _questSummaryProp = serializedObject.FindProperty("_questSummary"); // Find the quest summary property
+        _questNameProp = serializedObject.FindProperty("_questName");
+        _questSummaryProp = serializedObject.FindProperty("_questSummary");
         _questItemRequiredProp = serializedObject.FindProperty("_questItemRequired");
         _onQuestCompletedActionProp = serializedObject.FindProperty("_onQuestCompletedAction");
+        _npcFollowerProp = serializedObject.FindProperty("_npcFollower"); // Find the new property
+        _shouldFollowPlayerOnQuestCompleteProp = serializedObject.FindProperty("_shouldFollowPlayerOnQuestComplete"); // Find the new property
         _hasQuestBeenAcceptedProp = serializedObject.FindProperty("_hasQuestBeenAccepted");
         _hasQuestBeenCompletedProp = serializedObject.FindProperty("_hasQuestBeenCompleted");
 
         // Optional: Add debug logs to confirm properties are found
         if (_conversationNodesProp == null) Debug.LogError("NPCConversationTriggerEditor: _conversationNodes property not found!");
-        if (_npcNameProp == null) Debug.LogError("NPCConversationTriggerEditor: _npcName property not found!"); // Debug check
-        if (_questNameProp == null) Debug.LogError("NPCConversationTriggerEditor: _questName property not found!"); // Debug check
-        if (_questSummaryProp == null) Debug.LogError("NPCConversationTriggerEditor: _questSummary property not found!"); // Debug check
-        // ... (add similar checks for other properties if needed during debugging)
+        if (_npcNameProp == null) Debug.LogError("NPCConversationTriggerEditor: _npcName property not found!");
+        if (_questNameProp == null) Debug.LogError("NPCConversationTriggerEditor: _questName property not found!");
+        if (_questSummaryProp == null) Debug.LogError("NPCConversationTriggerEditor: _questSummary property not found!");
+        if (_npcFollowerProp == null) Debug.LogError("NPCConversationTriggerEditor: _npcFollower property not found!"); // Debug check
+        if (_shouldFollowPlayerOnQuestCompleteProp == null) Debug.LogError("NPCConversationTriggerEditor: _shouldFollowPlayerOnQuestComplete property not found!"); // Debug check
     }
 
     /// <summary>
@@ -66,7 +71,7 @@ public class NPCConversationTriggerEditor : Editor
         // Draw the NPC Portrait Sprite property.
         EditorGUILayout.PropertyField(_npcPortraitSpriteProp);
         // Draw the NPC Name property.
-        EditorGUILayout.PropertyField(_npcNameProp); // Draw the NPC name field
+        EditorGUILayout.PropertyField(_npcNameProp);
 
         EditorGUILayout.Space(); // Add some space for readability
         EditorGUILayout.LabelField("Conversation Start Nodes", EditorStyles.boldLabel); // Added label for clarity
@@ -76,12 +81,17 @@ public class NPCConversationTriggerEditor : Editor
 
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Quest Settings", EditorStyles.boldLabel); // Added label for clarity
-        EditorGUILayout.PropertyField(_questNameProp); // Draw the quest name field
-        EditorGUILayout.PropertyField(_questSummaryProp); // Draw the quest summary field
+        EditorGUILayout.PropertyField(_questNameProp);
+        EditorGUILayout.PropertyField(_questSummaryProp);
         EditorGUILayout.PropertyField(_questItemRequiredProp);
         EditorGUILayout.PropertyField(_onQuestCompletedActionProp);
         EditorGUILayout.PropertyField(_hasQuestBeenAcceptedProp);
         EditorGUILayout.PropertyField(_hasQuestBeenCompletedProp);
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Following Settings", EditorStyles.boldLabel); // NEW: Label for following settings
+        EditorGUILayout.PropertyField(_npcFollowerProp); // NEW: Draw the NPCFollower reference
+        EditorGUILayout.PropertyField(_shouldFollowPlayerOnQuestCompleteProp); // NEW: Draw the boolean toggle
 
         EditorGUILayout.Space();
         // Check if the _conversationNodesProp is not null before drawing it.
