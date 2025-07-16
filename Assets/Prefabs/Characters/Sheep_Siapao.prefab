@@ -106,9 +106,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _leaderTransform: {fileID: 0}
-  _followDistance: 1.5
-  _moveSpeed: 3
-  _lerpSmoothness: 5
+  _followDistance: 0.75
+  _moveSpeed: 5
+  _lerpSmoothness: 2
   _stopDistanceThreshold: 0.1
   _followDelayFrames: 10
 --- !u!114 &3741919556561793432
@@ -125,8 +125,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _conversationNodes:
   - Speaker: 0
-    Dialogue: Hi, I wandered off again, and I'm a little lost.  Could you help me
-      find my son?
+    Dialogue: Hi, I want to make bridges to cross the rivers.  Could you help me
+      find some wooden planks?
     PlayerResponsePositiveText: I'd be happy to!
     PlayerResponseAlternateText: Maybe later.
     NextNodeIndexPositive: 0
@@ -152,14 +152,14 @@ MonoBehaviour:
     IsQuestDeliverChoicePositive: 0
     IsQuestDeliverChoiceAlternate: 0
   - Speaker: 0
-    Dialogue: Thank you so much!
+    Dialogue: Thank you so much! I think they're deep in the forest behind me.
     PlayerResponsePositiveText: 
     PlayerResponseAlternateText: 
     NextNodeIndexPositive: 0
     NextNodeIndexAlternate: 0
     EndConversationOnPositiveChoice: 0
     EndConversationOnAlternateChoice: 0
-    EndConversationAfterNPC: 0
+    EndConversationAfterNPC: 1
     IsQuestAcceptChoicePositive: 0
     IsQuestAcceptChoiceAlternate: 0
     IsQuestDeliverChoicePositive: 0
@@ -178,7 +178,7 @@ MonoBehaviour:
     IsQuestDeliverChoicePositive: 1
     IsQuestDeliverChoiceAlternate: 0
   - Speaker: 0
-    Dialogue: That's okay. Thank you anyway.
+    Dialogue: Okay, thank you anyway.
     PlayerResponsePositiveText: Yes, here it is!
     PlayerResponseAlternateText: Not yet.
     NextNodeIndexPositive: 0
@@ -190,14 +190,54 @@ MonoBehaviour:
     IsQuestAcceptChoiceAlternate: 0
     IsQuestDeliverChoicePositive: 1
     IsQuestDeliverChoiceAlternate: 0
+  - Speaker: 0
+    Dialogue: Were you able to find the planks?
+    PlayerResponsePositiveText: Yes, here it is!
+    PlayerResponseAlternateText: Not yet.
+    NextNodeIndexPositive: 0
+    NextNodeIndexAlternate: 3
+    EndConversationOnPositiveChoice: 0
+    EndConversationOnAlternateChoice: 0
+    EndConversationAfterNPC: 0
+    IsQuestAcceptChoicePositive: 0
+    IsQuestAcceptChoiceAlternate: 0
+    IsQuestDeliverChoicePositive: 1
+    IsQuestDeliverChoiceAlternate: 0
+  - Speaker: 1
+    Dialogue: Were you able to find the planks?
+    PlayerResponsePositiveText: Yes, here they are!
+    PlayerResponseAlternateText: Not yet.
+    NextNodeIndexPositive: 0
+    NextNodeIndexAlternate: 4
+    EndConversationOnPositiveChoice: 0
+    EndConversationOnAlternateChoice: 0
+    EndConversationAfterNPC: 1
+    IsQuestAcceptChoicePositive: 0
+    IsQuestAcceptChoiceAlternate: 0
+    IsQuestDeliverChoicePositive: 1
+    IsQuestDeliverChoiceAlternate: 0
+  - Speaker: 0
+    Dialogue: Awesome! *Knock Knock Knock* Here are some bridges that will help you
+      cross the river.
+    PlayerResponsePositiveText: Yes, here they are!
+    PlayerResponseAlternateText: Not yet.
+    NextNodeIndexPositive: 0
+    NextNodeIndexAlternate: 4
+    EndConversationOnPositiveChoice: 0
+    EndConversationOnAlternateChoice: 0
+    EndConversationAfterNPC: 1
+    IsQuestAcceptChoicePositive: 0
+    IsQuestAcceptChoiceAlternate: 0
+    IsQuestDeliverChoicePositive: 1
+    IsQuestDeliverChoiceAlternate: 0
   _npcPortraitSprite: {fileID: 2138325743, guid: 67b479866b9c93c44b66f9fd2ff9e5ff, type: 3}
   _npcName: Sheepy
   _initialStartNodeIndex: 0
-  _questAcceptedNodeIndex: 4
+  _questAcceptedNodeIndex: 5
   _questCompletedNodeIndex: 6
-  _questName: Sheepy
-  _questSummary: 
-  _questItemRequired: {fileID: 0}
+  _questName: Bridges for Sheepy
+  _questSummary: Find Wood Planks for Sheepy to make some bridges
+  _questItemRequired: {fileID: 11400000, guid: 79f757e7eb9db204ba225785021cf648, type: 2}
   _onQuestCompletedAction:
     m_PersistentCalls:
       m_Calls:
@@ -213,6 +253,8 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  _questRewardItem: {fileID: 11400000, guid: a2d6f1fb64b775c4f94d5c90d292b145, type: 2}
+  _questRewardQuantity: 3
   _npcFollower: {fileID: 6581508177755328888}
   _shouldFollowPlayerOnQuestComplete: 1
   _hasQuestBeenAccepted: 0
@@ -299,7 +341,7 @@ Rigidbody2D:
   m_Interpolate: 0
   m_SleepingMode: 1
   m_CollisionDetection: 0
-  m_Constraints: 7
+  m_Constraints: 4
 --- !u!70 &1418891190663751443
 CapsuleCollider2D:
   m_ObjectHideFlags: 0

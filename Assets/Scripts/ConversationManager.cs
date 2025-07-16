@@ -209,10 +209,30 @@ public class ConversationManager : MonoBehaviour
         {
             _playerChatShadow.SetActive(true);
             _playerImage.sprite = _playerPortraitSprite; // Use the global player portrait
-            _playerResponsePositiveText.text = currentNode.PlayerResponsePositiveText;
-            _playerResponseAlternateText.text = currentNode.PlayerResponseAlternateText;
-            _playerResponsePositiveButton.gameObject.SetActive(true);
-            _playerResponseAlternateButton.gameObject.SetActive(true);
+
+            // Set positive response button text and visibility
+            if (!string.IsNullOrEmpty(currentNode.PlayerResponsePositiveText))
+            {
+                _playerResponsePositiveText.text = currentNode.PlayerResponsePositiveText;
+                _playerResponsePositiveButton.gameObject.SetActive(true);
+            }
+            else
+            {
+                _playerResponsePositiveText.text = ""; // Clear text if button is hidden
+                _playerResponsePositiveButton.gameObject.SetActive(false);
+            }
+
+            // Set alternate response button text and visibility
+            if (!string.IsNullOrEmpty(currentNode.PlayerResponseAlternateText))
+            {
+                _playerResponseAlternateText.text = currentNode.PlayerResponseAlternateText;
+                _playerResponseAlternateButton.gameObject.SetActive(true);
+            }
+            else
+            {
+                _playerResponseAlternateText.text = ""; // Clear text if button is hidden
+                _playerResponseAlternateButton.gameObject.SetActive(false);
+            }
         }
     }
 
@@ -345,6 +365,10 @@ public class ConversationManager : MonoBehaviour
                 _activeNpcTrigger.SetQuestCompleted(true); // This will now also add to friends via NPCConversationTrigger
                 Debug.Log($"Quest item '{requiredItem.ItemName}' delivered to {_activeNpcTrigger.gameObject.name}. Quest completed!");
                 _activeNpcTrigger.TriggerQuestCompletionAction(); // Trigger the custom action
+
+                // NEW: Give quest reward if specified by the NPCConversationTrigger
+                _activeNpcTrigger?.GiveQuestReward(); // Call the new method on the NPCConversationTrigger
+
                 EndConversation(); // End conversation after successful delivery
             }
             else

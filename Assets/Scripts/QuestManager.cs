@@ -30,6 +30,10 @@ public class QuestManager : MonoBehaviour
         }
     }
 
+    [Header("Friend Settings")] // NEW: Header for friend-related settings
+    [Tooltip("The total number of unique NPCs that can be befriended in the game.")]
+    [SerializeField] private int _totalPossibleFriends = 0; // NEW: Total possible friends
+
     // List to store all active and completed quests.
     private List<Quest> _activeQuests = new List<Quest>();
     // List to store the names of befriended NPCs.
@@ -82,6 +86,12 @@ public class QuestManager : MonoBehaviour
             // Also update the Joy Meter when a quest is added, in case it affects the total count or initial state
             QuestUI.Instance.UpdateJoyMeterDisplay();
         }
+
+        // NEW: Show notification for quest added
+        if (NotificationManager.Instance != null)
+        {
+            NotificationManager.Instance.ShowNotification($"New Quest: {questName}");
+        }
     }
 
     /// <summary>
@@ -104,6 +114,12 @@ public class QuestManager : MonoBehaviour
                 if (QuestUI.Instance != null)
                 {
                     QuestUI.Instance.UpdateJoyMeterDisplay();
+                }
+
+                // NEW: Show notification for quest completed
+                if (NotificationManager.Instance != null)
+                {
+                    NotificationManager.Instance.ShowNotification($"Quest Completed: {questName}");
                 }
                 return true;
             }
@@ -134,6 +150,12 @@ public class QuestManager : MonoBehaviour
             }
             _friends.Add(friendName);
             Debug.Log($"Added {friendName} to Friends list.");
+
+            // NEW: Show notification for new friend
+            if (NotificationManager.Instance != null)
+            {
+                NotificationManager.Instance.ShowNotification($"New Friend: {friendName}");
+            }
         }
         else
         {
@@ -149,7 +171,7 @@ public class QuestManager : MonoBehaviour
     public void AddFriend(string friendName, NPCFollower npcFollower) // NEW: This overload takes NPCFollower
     {
         // Call the original AddFriend method to handle the basic friend list addition
-        AddFriend(friendName);
+        AddFriend(friendName); // This will now trigger the notification for "New Friend"
 
         // Now handle the following logic if an NPCFollower component was provided
         if (npcFollower != null && PlayerController.Instance != null)
@@ -208,5 +230,13 @@ public class QuestManager : MonoBehaviour
     public IReadOnlyList<NPCFollower> GetActiveFollowers() // NEW: Getter for active followers
     {
         return _activeFollowers.AsReadOnly();
+    }
+
+    /// <summary>
+    /// Returns the total number of possible friends in the game.
+    /// </summary>
+    public int GetTotalPossibleFriends() // NEW: Getter for total possible friends
+    {
+        return _totalPossibleFriends;
     }
 }

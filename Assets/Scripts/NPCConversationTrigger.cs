@@ -1,7 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Events; // Required for UnityEvent
-// Removed TMPro using, as _npcName is now a string, not a TextMeshProUGUI component.
 
 /// <summary>
 /// This script is attached to an NPC GameObject that triggers a conversation.
@@ -10,6 +9,8 @@ using UnityEngine.Events; // Required for UnityEvent
 /// </summary>
 public class NPCConversationTrigger : MonoBehaviour
 {
+    // The ConversationNode class is now expected to be defined within ConversationManager.
+    // Example: public class ConversationManager : MonoBehaviour { [System.Serializable] public class ConversationNode { ... } }
     [Tooltip("The unique conversation nodes for this NPC.")]
     [SerializeField] private List<ConversationManager.ConversationNode> _conversationNodes = new List<ConversationManager.ConversationNode>();
 
@@ -38,6 +39,12 @@ public class NPCConversationTrigger : MonoBehaviour
 
     [Tooltip("Action to trigger when the quest is successfully completed (item delivered).")]
     [SerializeField] private UnityEvent _onQuestCompletedAction;
+
+    [Header("Quest Reward")] // NEW: Header for quest reward settings
+    [Tooltip("The ItemData ScriptableObject to give the player when this quest is completed.")]
+    [SerializeField] private ItemData _questRewardItem;
+    [Tooltip("The quantity of the reward item to give the player.")]
+    [SerializeField] private int _questRewardQuantity = 1;
 
     [Header("Following Settings")] // NEW: Header for following
     [Tooltip("Reference to the NPCFollower component on this NPC, if it should follow the player after quest completion.")]
@@ -179,7 +186,54 @@ public class NPCConversationTrigger : MonoBehaviour
         return _npcFollower;
     }
 
-    // Optional: Draw a gizmo in the editor to visualize the trigger area.
+    /// <summary>
+    /// Gives the specified quest reward item and quantity to the player's inventory.
+    /// </summary>
+    public void GiveQuestReward()
+    {
+        if (_questRewardItem != null && _questRewardQuantity > 0)
+        {
+            if (InventoryManager.Instance != null)
+            {
+                if (InventoryManager.Instance.AddItem(_questRewardItem, _questRewardQuantity))
+                {
+                    Debug.Log($"NPC {_npcName}: Gave player {_questRewardQuantity} x {_questRewardItem.ItemName} as quest reward.");
+                }
+                else
+                {
+                    Debug.LogWarning($"NPC {_npcName}: Failed to give player {_questRewardQuantity} x {_questRewardItem.ItemName}. Inventory might be full.");
+                }
+            }
+            else
+            {
+                Debug.LogError($"NPC {_npcName}: InventoryManager.Instance not found! Cannot give quest reward.");
+            }
+        }
+        else
+        {
+            Debug.Log($"NPC {_npcName}: No quest reward item or quantity specified for this quest.");
+        }
+    }
+
+    /// <summary>
+    /// Returns the ItemData given as a reward upon quest completion.
+    /// </summary>
+    public ItemData GetQuestRewardItem()
+    {
+        return _questRewardItem;
+    }
+
+    /// <summary>
+    /// Returns the quantity of the reward item given upon quest completion.
+    /// </summary>
+    public int GetQuestRewardQuantity()
+    {
+        return _questRewardQuantity;
+    }
+
+    /// <summary>
+    /// Optional: Draw a gizmo in the editor to visualize the trigger area.
+    /// </summary>
     private void OnDrawGizmos()
     {
         Collider2D trigger = GetComponent<Collider2D>();

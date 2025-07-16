@@ -10,6 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 3902003573851837297}
   - component: {fileID: 1235341772984403476}
+  - component: {fileID: 4794892026890219267}
+  - component: {fileID: 4900655656705586618}
   m_Layer: 0
   m_Name: DoubleLong_HorizontalBridge
   m_TagString: Untagged
@@ -85,6 +87,61 @@ PolygonCollider2D:
       - {x: 0.1270333, y: -0.3977517}
       - {x: 1.1165549, y: 0.1310184}
   m_UseDelaunayMesh: 0
+--- !u!70 &4794892026890219267
+CapsuleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1015447320870550656}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 1
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0.32574666, y: 0.025852919}
+  m_Size: {x: 1.9374216, y: 1.9374216}
+  m_Direction: 0
+--- !u!114 &4900655656705586618
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1015447320870550656}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba826200fb2b6f147ab4460df06498de, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _enableConditionalVisibility: 1
+  _itemForVisibilityCheck: {fileID: 11400000, guid: a2d6f1fb64b775c4f94d5c90d292b145, type: 2}
+  _targetSpriteRenderers:
+  - {fileID: 607587659893853212}
+  - {fileID: 421713857209604367}
+  _targetPolygonCollider: {fileID: 1235341772984403476}
 --- !u!1 &1659492163964947797
 GameObject:
   m_ObjectHideFlags: 0

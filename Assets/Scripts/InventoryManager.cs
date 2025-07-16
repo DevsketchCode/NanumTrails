@@ -68,6 +68,12 @@ public class InventoryManager : MonoBehaviour
             QuestUI.Instance.UpdateInventoryDisplay();
             QuestUI.Instance.ShowInventoryIcon(); // Show icon when an item is added
         }
+
+        // NEW: Show notification for item added
+        if (NotificationManager.Instance != null)
+        {
+            NotificationManager.Instance.ShowNotification($"Added {quantity}x {itemData.ItemName} to Inventory");
+        }
         return true;
     }
 
@@ -93,9 +99,12 @@ public class InventoryManager : MonoBehaviour
         if (_inventoryContents.ContainsKey(itemData))
         {
             _inventoryContents[itemData] -= quantity;
+            string notificationMessage = $"Removed {quantity}x {itemData.ItemName}"; // Start with base message
+
             if (_inventoryContents[itemData] <= 0)
             {
                 _inventoryContents.Remove(itemData);
+                notificationMessage += " (all removed)"; // Append if item is completely gone
             }
             Debug.Log($"Removed {quantity} x {itemData.ItemName} from inventory.");
 
@@ -108,6 +117,12 @@ public class InventoryManager : MonoBehaviour
                 {
                     QuestUI.Instance.HideInventoryIcon();
                 }
+            }
+
+            // NEW: Show notification for item removed
+            if (NotificationManager.Instance != null)
+            {
+                NotificationManager.Instance.ShowNotification(notificationMessage);
             }
             return true;
         }

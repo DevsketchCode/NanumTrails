@@ -38,8 +38,8 @@ public class PlayerController : MonoBehaviour
 
     [Header("Isometric Movement Angle Bias")]
     [Tooltip("An optional angle (in degrees) by which to bias the isometric movement direction each frame. " +
-             "Positive values rotate the movement clockwise, negative values rotate counter-clockwise. " +
-             "Use this for fine-tuning after the base 1:2 isometric transformation.")]
+              "Positive values rotate the movement clockwise, negative values rotate counter-clockwise. " +
+              "Use this for fine-tuning after the base 1:2 isometric transformation.")]
     [SerializeField]
     private float _isometricAngleBias = 0.0f; // This field remains for fine-tuning
 
@@ -157,7 +157,7 @@ public class PlayerController : MonoBehaviour
             // Stop movement immediately if disabled.
             _currentRawInput = Vector2.zero; // Clear input
             _animator.SetBool(IsMovingHash, false); // Stop walking animation
-            _rb.velocity = Vector2.zero; // Ensure rigidbody stops (though MovePosition is used)
+            _rb.linearVelocity = Vector2.zero; // Ensure rigidbody stops (though MovePosition is used)
             CurrentMovementVelocity = Vector2.zero; // NEW: Reset exposed velocity
         }
     }
@@ -179,7 +179,7 @@ public class PlayerController : MonoBehaviour
         {
             _currentRawInput = Vector2.zero; // Ensure no lingering input
             _animator.SetBool(IsMovingHash, false); // Ensure idle animation
-            _rb.velocity = Vector2.zero; // Ensure player is fully stopped
+            _rb.linearVelocity = Vector2.zero; // Ensure player is fully stopped
             CurrentMovementVelocity = Vector2.zero; // NEW: Reset exposed velocity
             return;
         }
@@ -194,11 +194,11 @@ public class PlayerController : MonoBehaviour
         }
 
         // Re-enabled logs for debugging input and velocity
-        Debug.Log($"PlayerController: Raw Input (Keyboard/Gamepad) = {inputFromInputActions}");
-        if (_useJoystickInput)
-        {
-            Debug.Log($"PlayerController: Raw Input (Joystick) = {inputFromJoystick}");
-        }
+        // Debug.Log($"PlayerController: Raw Input (Keyboard/Gamepad) = {inputFromInputActions}");
+        // if (_useJoystickInput)
+        // {
+        //     Debug.Log($"PlayerController: Raw Input (Joystick) = {inputFromJoystick}");
+        // }
 
         Vector3 finalMoveDirection = Vector3.zero;
 
@@ -229,7 +229,7 @@ public class PlayerController : MonoBehaviour
         }
 
         // Re-enabled log for debugging final move direction
-        Debug.Log($"PlayerController: Final Move Direction (Before Normalize) = {finalMoveDirection}");
+        // Debug.Log($"PlayerController: Final Move Direction (Before Normalize) = {finalMoveDirection}");
 
         // Set IsMoving animator parameter based on whether there's any active input.
         _animator.SetBool(IsMovingHash, _currentRawInput != Vector2.zero);
@@ -237,9 +237,9 @@ public class PlayerController : MonoBehaviour
         // If no movement input, stop further movement calculations.
         if (finalMoveDirection == Vector3.zero) // Check the actual calculated movement direction
         {
-            _rb.velocity = Vector2.zero; // Ensure player stops if no input
+            _rb.linearVelocity = Vector2.zero; // Ensure player stops if no input
             CurrentMovementVelocity = Vector2.zero; // NEW: Reset exposed velocity
-            Debug.Log("PlayerController: No movement input, setting velocity to zero.");
+            // Debug.Log("PlayerController: No movement input, setting velocity to zero.");
             return;
         }
 
@@ -256,8 +256,8 @@ public class PlayerController : MonoBehaviour
         CurrentMovementVelocity = (Vector2)finalMoveDirection * _moveSpeed * _tileUnitSize; // Velocity in units/sec
 
         // Re-enabled log for debugging the final calculated CurrentMovementVelocity
-        Debug.Log($"PlayerController: Calculated CurrentMovementVelocity = {CurrentMovementVelocity}");
-        Debug.Log($"PlayerController: Is Movement Enabled = {_isMovementEnabled}"); // NEW: Log the movement enabled state
+        // Debug.Log($"PlayerController: Calculated CurrentMovementVelocity = {CurrentMovementVelocity}");
+        // Debug.Log($"PlayerController: Is Movement Enabled = {_isMovementEnabled}"); // NEW: Log the movement enabled state
 
         // --- Sprite Flipping and Animation Update ---
         UpdateSpriteDirection(finalMoveDirection); // Use the actual movement direction for sprite logic
@@ -291,6 +291,18 @@ public class PlayerController : MonoBehaviour
             _animator.SetBool(IsFacingBackwardHash, false); // Player is moving "down" the screen
         }
         // If direction.y is 0, maintain last vertical animation state.
+    }
+
+    /// <summary>
+    /// Sets the player's sprite facing direction based on a given direction vector.
+    /// This method is called by external scripts (e.g., FirepitTrigger) to force a specific facing.
+    /// </summary>
+    /// <param name="direction">The direction vector the player should face.</param>
+    public void SetFacingDirection(Vector2 direction)
+    {
+        // Reuse the existing UpdateSpriteDirection logic by converting Vector2 to Vector3
+        UpdateSpriteDirection(new Vector3(direction.x, direction.y, 0));
+        Debug.Log($"PlayerController: Forced facing direction to {direction}");
     }
 
     /// <summary>
@@ -373,10 +385,10 @@ public class PlayerController : MonoBehaviour
                     // Start conversation using data from the specific NPC.
                     ConversationManager.Instance.StartConversation(
                         npcTrigger.GetConversationNodes(),
-                        npcTrigger.GetNPCName(),        // Pass the NPC name (string)
-                        npcTrigger.GetNPCPortrait(),    // Pass the NPC portrait (Sprite)
-                        npcTrigger,                     // Pass the NPCConversationTrigger object itself
-                        npcTrigger.GetStartNodeIndex()  // Pass the start node index (int)
+                        npcTrigger.GetNPCName(),
+                        npcTrigger.GetNPCPortrait(),
+                        npcTrigger,
+                        npcTrigger.GetStartNodeIndex()
                     );
                 }
                 else
