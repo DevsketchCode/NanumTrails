@@ -80,7 +80,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 1360610913
-  m_SortingLayer: 1
+  m_SortingLayer: 3
   m_SortingOrder: 1
   m_Sprite: {fileID: 1300471001, guid: 67b479866b9c93c44b66f9fd2ff9e5ff, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -110,6 +110,7 @@ MonoBehaviour:
   _moveSpeed: 5
   _lerpSmoothness: 2
   _stopDistanceThreshold: 0.1
+  _playerProximityStopDistance: 0.7
   _followDelayFrames: 10
 --- !u!114 &5632710678414653213
 MonoBehaviour:
@@ -213,6 +214,8 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  _questRewardItem: {fileID: 0}
+  _questRewardQuantity: 1
   _npcFollower: {fileID: 910819745021912089}
   _shouldFollowPlayerOnQuestComplete: 1
   _hasQuestBeenAccepted: 0

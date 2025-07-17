@@ -23,6 +23,8 @@ public class NPCFollower : MonoBehaviour
     [SerializeField] private float _lerpSmoothness = 5.0f;
     [Tooltip("The threshold distance for the NPC to consider itself 'stopped' at the target follow position.")]
     [SerializeField] private float _stopDistanceThreshold = 0.1f;
+    [Tooltip("The minimum distance the NPC will maintain from its leader (player) when following, to prevent pushing.")]
+    [SerializeField] private float _playerProximityStopDistance = 0.5f; // This is the key field!
 
     [Header("Delay Settings")]
     [Tooltip("The number of FixedUpdate frames the NPC's movement should lag behind its leader. Higher values mean more delay.")]
@@ -39,7 +41,7 @@ public class NPCFollower : MonoBehaviour
 
     // Store a history of the leader's positions and velocities to implement the delay
     private Queue<Vector2> _leaderPositionHistory = new Queue<Vector2>();
-    private Queue<Vector2> _leaderVelocityHistory = new Queue<Vector2>(); // NEW: To store historical velocities
+    private Queue<Vector2> _leaderVelocityHistory = new Queue<Vector2>(); // To store historical velocities
 
     private Vector2 _targetPosition; // The calculated position this NPC is trying to reach
 
@@ -131,7 +133,7 @@ public class NPCFollower : MonoBehaviour
             // For now, it will keep its current flipX if directly above/below.
         }
 
-        // NEW: Disable the CapsuleCollider2D when following starts
+        // Disable the CapsuleCollider2D when following starts to prevent re-triggering conversation
         if (_triggerCollider != null)
         {
             _triggerCollider.enabled = false;
@@ -149,7 +151,7 @@ public class NPCFollower : MonoBehaviour
         _animator.SetBool(IsMovingHash, false); // Set to idle animation
         Debug.Log($"NPC {gameObject.name} stopped following. _isFollowing set to FALSE.");
 
-        // NEW: Re-enable the CapsuleCollider2D when following stops
+        // Re-enable the CapsuleCollider2D when following stops
         if (_triggerCollider != null)
         {
             _triggerCollider.enabled = true;
@@ -182,9 +184,24 @@ public class NPCFollower : MonoBehaviour
         }
 
         Vector2 currentVelocity = Vector2.zero;
+        float distanceToActualLeader = 0f; // Initialize outside the if block
 
         if (_isFollowing)
         {
+            // Get current leader's actual position (not delayed) for proximity check
+            Vector2 actualLeaderPosition = _leaderTransform.position;
+            distanceToActualLeader = Vector2.Distance(_rb.position, actualLeaderPosition);
+
+            // NEW: If too close to the actual leader, stop moving to prevent pushing.
+            if (distanceToActualLeader < _playerProximityStopDistance)
+            {
+                _rb.linearVelocity = Vector2.zero;
+                _animator.SetBool(IsMovingHash, false);
+                Debug.Log($"NPC {gameObject.name}: Stopped due to proximity to leader (Distance: {distanceToActualLeader:F2}).");
+                UpdateSpriteDirection(Vector2.zero); // Ensure sprite faces correctly when stopped
+                return; // Stop processing movement for this frame
+            }
+
             // Get current leader's velocity
             Vector2 currentLeaderVelocity = Vector2.zero;
             if (PlayerController.Instance != null && _leaderTransform == PlayerController.Instance.transform)
@@ -202,18 +219,18 @@ public class NPCFollower : MonoBehaviour
 
             // Add current leader position and velocity to history
             _leaderPositionHistory.Enqueue(_leaderTransform.position);
-            _leaderVelocityHistory.Enqueue(currentLeaderVelocity); // NEW: Enqueue current velocity
+            _leaderVelocityHistory.Enqueue(currentLeaderVelocity); // Enqueue current velocity
 
             // Remove oldest entries if history is too long
             if (_leaderPositionHistory.Count > _followDelayFrames)
             {
                 _leaderPositionHistory.Dequeue();
-                _leaderVelocityHistory.Dequeue(); // NEW: Dequeue oldest velocity
+                _leaderVelocityHistory.Dequeue(); // Dequeue oldest velocity
             }
 
             // The target position for the NPC is the oldest position in the history queue
             Vector2 delayedLeaderPos = _leaderPositionHistory.Peek();
-            Vector2 delayedLeaderVelocity = _leaderVelocityHistory.Peek(); // NEW: Get delayed velocity
+            Vector2 delayedLeaderVelocity = _leaderVelocityHistory.Peek(); // Get delayed velocity
 
             Vector2 leaderMovementDirection;
             float leaderSpeed = delayedLeaderVelocity.magnitude;
@@ -254,13 +271,8 @@ public class NPCFollower : MonoBehaviour
 
             float distanceToTarget = Vector2.Distance(currentPosition, _targetPosition);
 
-            // Debug logs for following behavior
-            // Debug.Log($"NPC {gameObject.name} (Following): Leader Pos={_leaderTransform.position}, Delayed Pos={delayedLeaderPos}, " +
-            //           $"Target Pos={_targetPosition}, Current Pos={currentPosition}, Distance={distanceToTarget:F2}, " +
-            //           $"Delayed Leader Speed={leaderSpeed:F2}, Queue Count={_leaderPositionHistory.Count}");
-
             // Stop animation if very close to target and delayed leader is not moving significantly
-            if (distanceToTarget < _stopDistanceThreshold && leaderSpeed < _stopDistanceThreshold)
+            if (distanceToTarget < _stopDistanceThreshold && delayedLeaderVelocity.magnitude < 0.01f)
             {
                 _rb.linearVelocity = Vector2.zero;
                 _animator.SetBool(IsMovingHash, false);
@@ -297,38 +309,49 @@ public class NPCFollower : MonoBehaviour
         }
 
         // Update sprite direction based on movement velocity
-        UpdateSpriteDirection(currentVelocity);
+        // Only update if there's significant movement or if we just stopped due to proximity
+        if (currentVelocity.magnitude > 0.05f || (_isFollowing && distanceToActualLeader < _playerProximityStopDistance))
+        {
+            UpdateSpriteDirection(currentVelocity);
+        }
     }
 
     /// <summary>
     /// Updates the NPC's sprite direction (flipX) and animation state
-    /// based on its current movement velocity.
+    /// based on its current movement velocity or a forced direction.
     /// </summary>
-    /// <param name="velocity">The current velocity of the NPC.</param>
-    private void UpdateSpriteDirection(Vector2 velocity)
+    /// <param name="direction">The current velocity of the NPC, or a forced direction vector.</param>
+    public void UpdateSpriteDirection(Vector2 direction) // Changed to public to be called by SetFacingDirection
     {
-        // Only update if there's significant movement
-        if (velocity.magnitude > 0.05f) // Small threshold to avoid flipping on tiny movements
+        // Only update if there's significant movement or a specific direction is provided
+        if (direction.magnitude > 0.05f) // Small threshold to avoid flipping on tiny movements
         {
-            // Horizontal flip based on X velocity
-            if (velocity.x < 0)
+            // Horizontal flip based on X direction
+            if (direction.x < 0)
             {
                 _spriteRenderer.flipX = true; // Face left
             }
-            else if (velocity.x > 0)
+            else if (direction.x > 0)
             {
                 _spriteRenderer.flipX = false; // Face right
             }
 
-            // Vertical animation based on Y velocity (for isometric "up" or "down" sprites)
-            if (velocity.y > 0)
+            // Vertical animation based on Y direction (for isometric "up" or "down" sprites)
+            if (direction.y > 0)
             {
                 _animator.SetBool(IsFacingBackwardHash, true); // Moving "up" the screen
             }
-            else if (velocity.y < 0)
+            else if (direction.y < 0)
             {
                 _animator.SetBool(IsFacingBackwardHash, false); // Moving "down" the screen
             }
+        }
+        else // If not moving, ensure sprite is facing a default or last known direction if needed.
+             // For now, it will retain its last facing if magnitude is near zero.
+        {
+            // You might want a default idle facing here if there's no movement.
+            // For example, if you want them to face "down" when idle:
+            // _animator.SetBool(IsFacingBackwardHash, false);
         }
     }
 
@@ -339,8 +362,8 @@ public class NPCFollower : MonoBehaviour
     /// <param name="direction">The direction vector the NPC should face.</param>
     public void SetFacingDirection(Vector2 direction)
     {
-        // Reuse the existing UpdateSpriteDirection logic by converting Vector2 to Vector3
-        // We pass a non-zero magnitude to ensure UpdateSpriteDirection processes the flip/animation.
+        // Reuse the existing UpdateSpriteDirection logic by passing the desired direction.
+        // We ensure a non-zero magnitude to trigger the logic.
         UpdateSpriteDirection(direction.normalized * 0.1f); // Use a small magnitude to trigger the logic
         Debug.Log($"NPCFollower on {gameObject.name}: Forced facing direction to {direction}");
     }

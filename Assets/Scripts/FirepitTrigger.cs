@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq; // For LINQ to find all NPCFollowers
 using TMPro; // Required for TextMeshProUGUI
 using UnityEngine.UI; // Required for CanvasGroup
+using Unity.Cinemachine;
+
 #if UNITY_EDITOR // Only include UnityEditor namespace when in the editor
 using UnityEditor;
 #endif
@@ -45,13 +47,17 @@ public class FirepitTrigger : MonoBehaviour
     [TextArea(2, 4)]
     [SerializeField] private string _fallbackMessage = "The fire crackles warmly. The journey has ended.";
 
-    [Header("Custom End Game UI (Optional)")] // NEW: Header for optional custom UI
+    [Header("Custom End Game UI (Optional)")] // Header for optional custom UI
     [Tooltip("Optional: Assign a custom TextMeshProUGUI component for the permanent end-game message. " +
              "If left null, the NotificationManager's default text panel will be used.")]
     [SerializeField] private TextMeshProUGUI _customEndGameTextPanel;
     [Tooltip("Optional: Assign a custom CanvasGroup for the permanent end-game message. " +
              "If left null, the NotificationManager's default canvas group will be used.")]
     [SerializeField] private CanvasGroup _customEndGameCanvasGroup;
+
+    [Header("Camera Control")] // NEW: Header for camera control
+    [Tooltip("The Cinemachine Virtual Camera that should follow the firepit.")]
+    [SerializeField] private CinemachineCamera _virtualCamera;
 
 
     private bool _eventTriggered = false; // To prevent multiple triggers
@@ -127,6 +133,18 @@ public class FirepitTrigger : MonoBehaviour
                     }
                 }
 
+                // NEW: Change Cinemachine camera target to the firepit
+                if (_virtualCamera != null)
+                {
+                    _virtualCamera.Follow = _firepitCenter;
+                    Debug.Log("FirepitTrigger: Cinemachine camera now following Firepit Center.");
+                }
+                else
+                {
+                    Debug.LogWarning("FirepitTrigger: Virtual Camera is not assigned! Cannot change camera target.");
+                }
+
+
                 // Display end-game notification based on friends count
                 if (NotificationManager.Instance != null)
                 {
@@ -143,7 +161,7 @@ public class FirepitTrigger : MonoBehaviour
                         // Use string.Format to insert the number of friends into the message
                         endGameMessage = string.Format(_someFriendsMessage, friendsFound);
                     }
-                    else if (friendsFound >= totalPossibleFriends && totalPossibleFriends > 0) // Ensure totalPossibleFriends is not zero to avoid misleading "all friends"
+                    else if (totalPossibleFriends > 0 && friendsFound >= totalPossibleFriends) // Ensure totalPossibleFriends is not zero to avoid misleading "all friends"
                     {
                         endGameMessage = _allFriendsMessage;
                     }
