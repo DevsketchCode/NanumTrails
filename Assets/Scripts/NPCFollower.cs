@@ -24,11 +24,20 @@ public class NPCFollower : MonoBehaviour
     [Tooltip("The threshold distance for the NPC to consider itself 'stopped' at the target follow position.")]
     [SerializeField] private float _stopDistanceThreshold = 0.1f;
     [Tooltip("The minimum distance the NPC will maintain from its leader (player) when following, to prevent pushing.")]
-    [SerializeField] private float _playerProximityStopDistance = 0.5f; // This is the key field!
+    [SerializeField] private float _playerProximityStopDistance = 0.5f;
 
     [Header("Delay Settings")]
     [Tooltip("The number of FixedUpdate frames the NPC's movement should lag behind its leader. Higher values mean more delay.")]
     [SerializeField] private int _followDelayFrames = 10;
+
+    [Header("Animation Dead Zones")]
+    [Tooltip("The minimum absolute value of horizontal velocity required to register horizontal movement for animations. Values below this will be treated as zero.")]
+    [SerializeField]
+    private float _horizontalVelocityDeadZone = 0.01f; // New: Dead zone for horizontal velocity
+
+    [Tooltip("The minimum absolute value of vertical velocity required to register vertical movement for animations. Values below this will be treated as zero.")]
+    [SerializeField]
+    private float _verticalVelocityDeadZone = 0.01f; // New: Dead zone for vertical velocity
 
     private Rigidbody2D _rb;
     private Animator _animator;
@@ -48,6 +57,8 @@ public class NPCFollower : MonoBehaviour
     // Animator parameter hashes for efficiency
     private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
     private static readonly int IsFacingBackwardHash = Animator.StringToHash("IsFacingBackward");
+    private static readonly int HorizontalDirectionHash = Animator.StringToHash("HorizontalDirection"); // New hash for horizontal
+    private static readonly int VerticalDirectionHash = Animator.StringToHash("VerticalDirection"); // New hash for vertical
 
     /// <summary>
     /// Called when the script instance is being loaded.
@@ -121,16 +132,8 @@ public class NPCFollower : MonoBehaviour
             // Then, apply sprite flipping based on leader's initial relative position
             // This ensures the sprite is correctly oriented towards the leader at the start.
             Vector2 directionToLeader = _leaderTransform.position - transform.position;
-            if (directionToLeader.x < 0)
-            {
-                _spriteRenderer.flipX = true; // Leader is to the left, face left
-            }
-            else if (directionToLeader.x > 0)
-            {
-                _spriteRenderer.flipX = false; // Leader is to the right, face right
-            }
-            // If directionToLeader.x is 0, maintain current flipX, or set a default.
-            // For now, it will keep its current flipX if directly above/below.
+            // UpdateSpriteDirection will now handle the animator parameters based on this initial direction
+            UpdateSpriteDirection(directionToLeader);
         }
 
         // Disable the CapsuleCollider2D when following starts to prevent re-triggering conversation
@@ -149,6 +152,9 @@ public class NPCFollower : MonoBehaviour
         _isFollowing = false;
         _rb.linearVelocity = Vector2.zero; // Stop any residual movement
         _animator.SetBool(IsMovingHash, false); // Set to idle animation
+        // Reset direction parameters to 0 when stopped
+        _animator.SetFloat(HorizontalDirectionHash, 0f);
+        _animator.SetFloat(VerticalDirectionHash, 0f);
         Debug.Log($"NPC {gameObject.name} stopped following. _isFollowing set to FALSE.");
 
         // Re-enable the CapsuleCollider2D when following stops
@@ -184,7 +190,7 @@ public class NPCFollower : MonoBehaviour
         }
 
         Vector2 currentVelocity = Vector2.zero;
-        float distanceToActualLeader = 0f; // Initialize outside the if block
+        float distanceToActualLeader = 0f;
 
         if (_isFollowing)
         {
@@ -192,13 +198,16 @@ public class NPCFollower : MonoBehaviour
             Vector2 actualLeaderPosition = _leaderTransform.position;
             distanceToActualLeader = Vector2.Distance(_rb.position, actualLeaderPosition);
 
-            // NEW: If too close to the actual leader, stop moving to prevent pushing.
+            // If too close to the actual leader, stop moving to prevent pushing.
             if (distanceToActualLeader < _playerProximityStopDistance)
             {
                 _rb.linearVelocity = Vector2.zero;
                 _animator.SetBool(IsMovingHash, false);
+                // Ensure animator direction parameters are zero when stopped by proximity
+                _animator.SetFloat(HorizontalDirectionHash, 0f);
+                _animator.SetFloat(VerticalDirectionHash, 0f);
                 Debug.Log($"NPC {gameObject.name}: Stopped due to proximity to leader (Distance: {distanceToActualLeader:F2}).");
-                UpdateSpriteDirection(Vector2.zero); // Ensure sprite faces correctly when stopped
+                // No need to call UpdateSpriteDirection here, as it's handled by setting parameters to 0
                 return; // Stop processing movement for this frame
             }
 
@@ -248,9 +257,6 @@ public class NPCFollower : MonoBehaviour
                 }
                 else
                 {
-                    // If NPC is exactly on delayed leader's position and leader is stationary,
-                    // we can't determine a 'behind' direction. For now, assume no movement.
-                    // This case should be handled by _stopDistanceThreshold to prevent pushing.
                     leaderMovementDirection = Vector2.zero;
                 }
 
@@ -276,6 +282,9 @@ public class NPCFollower : MonoBehaviour
             {
                 _rb.linearVelocity = Vector2.zero;
                 _animator.SetBool(IsMovingHash, false);
+                // Reset direction parameters to 0 when truly stopped
+                _animator.SetFloat(HorizontalDirectionHash, 0f);
+                _animator.SetFloat(VerticalDirectionHash, 0f);
             }
             else
             {
@@ -291,12 +300,14 @@ public class NPCFollower : MonoBehaviour
                 _rb.MovePosition(_rb.position + moveStep);
                 _animator.SetBool(IsMovingHash, true);
                 currentVelocity = moveStep / Time.fixedDeltaTime;
-                // Debug.Log($"NPC {gameObject.name} (Moving to Dest): Current Pos={_rb.position}, Target Dest={_currentDestination}, Distance={directionToDestination.magnitude:F2}");
             }
             else
             {
                 _rb.linearVelocity = Vector2.zero;
                 _animator.SetBool(IsMovingHash, false);
+                // Reset direction parameters to 0 when reached destination
+                _animator.SetFloat(HorizontalDirectionHash, 0f);
+                _animator.SetFloat(VerticalDirectionHash, 0f);
                 _isMovingToDestination = false; // Reached destination
                 Debug.Log($"NPC {gameObject.name} reached destination: {_currentDestination}");
             }
@@ -306,52 +317,57 @@ public class NPCFollower : MonoBehaviour
             // Not following and not moving to destination, ensure idle
             _rb.linearVelocity = Vector2.zero;
             _animator.SetBool(IsMovingHash, false);
+            // Reset direction parameters to 0 when completely idle
+            _animator.SetFloat(HorizontalDirectionHash, 0f);
+            _animator.SetFloat(VerticalDirectionHash, 0f);
         }
 
-        // Update sprite direction based on movement velocity
-        // Only update if there's significant movement or if we just stopped due to proximity
-        if (currentVelocity.magnitude > 0.05f || (_isFollowing && distanceToActualLeader < _playerProximityStopDistance))
-        {
-            UpdateSpriteDirection(currentVelocity);
-        }
+        // Always update sprite direction and animator parameters based on current velocity
+        // This ensures animations update even when moving to destination or when forced to stop by proximity
+        UpdateSpriteDirection(currentVelocity);
     }
 
     /// <summary>
     /// Updates the NPC's sprite direction (flipX) and animation state
     /// based on its current movement velocity or a forced direction.
+    /// This method now also sets the HorizontalDirection and VerticalDirection Animator parameters.
     /// </summary>
     /// <param name="direction">The current velocity of the NPC, or a forced direction vector.</param>
-    public void UpdateSpriteDirection(Vector2 direction) // Changed to public to be called by SetFacingDirection
+    public void UpdateSpriteDirection(Vector2 direction)
     {
-        // Only update if there's significant movement or a specific direction is provided
-        if (direction.magnitude > 0.05f) // Small threshold to avoid flipping on tiny movements
+        // Horizontal flip and Animator parameter based on X direction
+        if (direction.x < -_horizontalVelocityDeadZone)
         {
-            // Horizontal flip based on X direction
-            if (direction.x < 0)
-            {
-                _spriteRenderer.flipX = true; // Face left
-            }
-            else if (direction.x > 0)
-            {
-                _spriteRenderer.flipX = false; // Face right
-            }
-
-            // Vertical animation based on Y direction (for isometric "up" or "down" sprites)
-            if (direction.y > 0)
-            {
-                _animator.SetBool(IsFacingBackwardHash, true); // Moving "up" the screen
-            }
-            else if (direction.y < 0)
-            {
-                _animator.SetBool(IsFacingBackwardHash, false); // Moving "down" the screen
-            }
+            _spriteRenderer.flipX = true; // Face left
+            _animator.SetFloat(HorizontalDirectionHash, -1f); // Set animator parameter for left
         }
-        else // If not moving, ensure sprite is facing a default or last known direction if needed.
-             // For now, it will retain its last facing if magnitude is near zero.
+        else if (direction.x > _horizontalVelocityDeadZone)
         {
-            // You might want a default idle facing here if there's no movement.
-            // For example, if you want them to face "down" when idle:
-            // _animator.SetBool(IsFacingBackwardHash, false);
+            _spriteRenderer.flipX = false; // Face right
+            _animator.SetFloat(HorizontalDirectionHash, 1f); // Set animator parameter for right
+        }
+        else
+        {
+            _animator.SetFloat(HorizontalDirectionHash, 0f); // Velocity within dead zone, treat as no horizontal movement
+        }
+
+        // Vertical animation and Animator parameter based on Y direction
+        // As per the convention: "Walking Forward is moving down in my map, and Backward is moving up."
+        // This means a negative Y velocity corresponds to 'forward' animation,
+        // and a positive Y velocity corresponds to 'backward' animation.
+        if (direction.y > _verticalVelocityDeadZone) // Moving UP the screen
+        {
+            _animator.SetBool(IsFacingBackwardHash, true); // Should face/animate backward
+            _animator.SetFloat(VerticalDirectionHash, 1f); // Positive Y for "backward" direction
+        }
+        else if (direction.y < -_verticalVelocityDeadZone) // Moving DOWN the screen
+        {
+            _animator.SetBool(IsFacingBackwardHash, false); // Should face/animate forward
+            _animator.SetFloat(VerticalDirectionHash, -1f); // Negative Y for "forward" direction
+        }
+        else
+        {
+            _animator.SetFloat(VerticalDirectionHash, 0f); // Velocity within dead zone, treat as no vertical movement
         }
     }
 
@@ -363,8 +379,18 @@ public class NPCFollower : MonoBehaviour
     public void SetFacingDirection(Vector2 direction)
     {
         // Reuse the existing UpdateSpriteDirection logic by passing the desired direction.
-        // We ensure a non-zero magnitude to trigger the logic.
-        UpdateSpriteDirection(direction.normalized * 0.1f); // Use a small magnitude to trigger the logic
+        // We normalize and use a small magnitude to ensure the logic within UpdateSpriteDirection is triggered
+        // for sprite flipping and animator parameter setting, even if the NPC is stationary but needs to face a direction.
+        if (direction.magnitude > 0.001f) // Ensure there's a valid direction to normalize
+        {
+            UpdateSpriteDirection(direction.normalized * 0.1f); // Use a small magnitude to trigger the logic
+        }
+        else
+        {
+            // If the forced direction is zero, ensure the animator parameters are reset to idle/neutral
+            _animator.SetFloat(HorizontalDirectionHash, 0f);
+            _animator.SetFloat(VerticalDirectionHash, 0f);
+        }
         Debug.Log($"NPCFollower on {gameObject.name}: Forced facing direction to {direction}");
     }
 }
