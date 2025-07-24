@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!221 &22100000
+AnimatorOverrideController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Sloth_AnimatorControllerOverride
+  m_Controller: {fileID: 9100000, guid: 1dbf0c9d680132d4cb8f7f102b62d803, type: 2}
+  m_Clips:
+  - m_OriginalClip: {fileID: 7400000, guid: 5cc0e6cd8c68e58439119de7fbf74bff, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 102f7bcd684c99b44907bdb515dc1372, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: a7e28dbdd169ccb45a3ede700fbb39b0, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 7ea6b8a882d692141b9e96c3d814f332, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: a27bf197017b9da4dbcaa815926e38b2, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 5475646c03a679c4d9a5a2eafddc950f, type: 2}
+  - m_OriginalClip: {fileID: 7400000, guid: 6ad410cc03b83e24d8519aeb7b62ee87, type: 2}
+    m_OverrideClip: {fileID: 7400000, guid: 3f5ff1559c8e68a4ebfd0be5cb714575, type: 2}

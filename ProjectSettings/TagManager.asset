@@ -10,6 +10,7 @@ TagManager:
   - PlayerChat
   - Collectable
   - Objects
+  - Glow
   layers:
   - Default
   - TransparentFX
@@ -64,6 +65,9 @@ TagManager:
     locked: 0
   - name: Objects_Foreground
     uniqueID: 834573331
+    locked: 0
+  - name: UI
+    uniqueID: 2844227957
     locked: 0
   m_RenderingLayers:
   - Default

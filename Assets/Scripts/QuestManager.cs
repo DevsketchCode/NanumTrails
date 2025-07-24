@@ -84,7 +84,7 @@ public class QuestManager : MonoBehaviour
         {
             QuestUI.Instance.ShowQuestIcon();
             // Also update the Joy Meter when a quest is added, in case it affects the total count or initial state
-            QuestUI.Instance.UpdateJoyMeterDisplay();
+            QuestUI.Instance.UpdateJoyMeterVisualOnly(); // Changed to the new public method
         }
 
         // NEW: Show notification for quest added
@@ -110,10 +110,11 @@ public class QuestManager : MonoBehaviour
                 questToComplete.IsCompleted = true;
                 Debug.Log($"Quest Completed: {questToComplete.QuestName} for {questToComplete.NPCName}");
 
-                // NEW: Update the Joy Meter display immediately upon quest completion
+                // Update the Joy Meter's visual fill immediately upon quest completion
+                // The effects will be triggered by NPCConversationTrigger when a friend is added.
                 if (QuestUI.Instance != null)
                 {
-                    QuestUI.Instance.UpdateJoyMeterDisplay();
+                    QuestUI.Instance.UpdateJoyMeterVisualOnly(); // Changed to the new public method
                 }
 
                 // NEW: Show notification for quest completed
@@ -168,7 +169,7 @@ public class QuestManager : MonoBehaviour
     /// </summary>
     /// <param name="friendName">The name of the NPC to add as a friend.</param>
     /// <param name="npcFollower">The NPCFollower component of the friend, if they should follow.</param>
-    public void AddFriend(string friendName, NPCFollower npcFollower) // NEW: This overload takes NPCFollower
+    public void AddFriend(string friendName, NPCFollower npcFollower)
     {
         // Call the original AddFriend method to handle the basic friend list addition
         AddFriend(friendName); // This will now trigger the notification for "New Friend"

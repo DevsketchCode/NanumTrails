@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Events; // Required for UnityEvent
+using System.Collections; // Required for Coroutines
 
 /// <summary>
 /// This script is attached to an NPC GameObject that triggers a conversation.
@@ -40,17 +41,23 @@ public class NPCConversationTrigger : MonoBehaviour
     [Tooltip("Action to trigger when the quest is successfully completed (item delivered).")]
     [SerializeField] private UnityEvent _onQuestCompletedAction;
 
-    [Header("Quest Reward")] // NEW: Header for quest reward settings
+    [Header("Quest Reward")] // Header for quest reward settings
     [Tooltip("The ItemData ScriptableObject to give the player when this quest is completed.")]
     [SerializeField] private ItemData _questRewardItem;
     [Tooltip("The quantity of the reward item to give the player.")]
     [SerializeField] private int _questRewardQuantity = 1;
 
-    [Header("Following Settings")] // NEW: Header for following
+    [Header("Following Settings")] // Header for following
     [Tooltip("Reference to the NPCFollower component on this NPC, if it should follow the player after quest completion.")]
     [SerializeField] private NPCFollower _npcFollower;
     [Tooltip("If true, this NPC will start following the player (or the preceding NPC) when their quest is completed.")]
     [SerializeField] private bool _shouldFollowPlayerOnQuestComplete = false;
+
+    [Header("Particle System Settings")] // NEW: Header for particle system
+    [Tooltip("The Particle System to play when this NPC is added as a friend.")]
+    [SerializeField] private ParticleSystem _friendAddedParticleSystem;
+    [Tooltip("The duration (in seconds) the 'Friend Added' particle system should play.")]
+    [SerializeField] private float _particleSystemDisplayDuration = 2.0f;
 
     // Quest state variables.
     [Tooltip("Internal: Has the quest from this NPC been accepted by the player?")]
@@ -67,6 +74,12 @@ public class NPCConversationTrigger : MonoBehaviour
         if (_npcFollower == null)
         {
             _npcFollower = GetComponent<NPCFollower>();
+        }
+
+        // Ensure the particle system is stopped initially
+        if (_friendAddedParticleSystem != null)
+        {
+            _friendAddedParticleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
     }
 
@@ -89,7 +102,7 @@ public class NPCConversationTrigger : MonoBehaviour
     /// <summary>
     /// Returns the name of this NPC.
     /// </summary>
-    public string GetNPCName() // Corrected: Changed return type to string
+    public string GetNPCName()
     {
         return _npcName;
     }
@@ -144,11 +157,14 @@ public class NPCConversationTrigger : MonoBehaviour
         {
             QuestManager.Instance.CompleteQuest(_questName, _npcName);
 
-            // NEW: Pass the NPCFollower reference to QuestManager's AddFriend method
-            // QuestManager will now handle setting the leader for the NPCFollower.
             if (_shouldFollowPlayerOnQuestComplete && _npcFollower != null)
             {
                 QuestManager.Instance.AddFriend(_npcName, _npcFollower);
+                // Play particle system when friend is added as a follower
+                if (_friendAddedParticleSystem != null)
+                {
+                    StartCoroutine(PlayParticleSystemForDuration(_friendAddedParticleSystem, _particleSystemDisplayDuration));
+                }
             }
             else if (_shouldFollowPlayerOnQuestComplete && _npcFollower == null)
             {
@@ -159,6 +175,29 @@ public class NPCConversationTrigger : MonoBehaviour
             {
                 QuestManager.Instance.AddFriend(_npcName);
             }
+
+            // Call QuestUI to update Joy Meter and trigger its effects ONLY when a friend is added
+            if (QuestUI.Instance != null)
+            {
+                QuestUI.Instance.UpdateJoyMeterAndTriggerEffects();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Coroutine to play a particle system for a specified duration.
+    /// </summary>
+    /// <param name="particleSystem">The ParticleSystem to play.</param>
+    /// <param name="duration">How long (in seconds) the particle system should play.</param>
+    private IEnumerator PlayParticleSystemForDuration(ParticleSystem particleSystem, float duration)
+    {
+        if (particleSystem != null)
+        {
+            particleSystem.Play();
+            Debug.Log($"Playing particle system '{particleSystem.name}' for {duration} seconds.");
+            yield return new WaitForSeconds(duration);
+            particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            Debug.Log($"Stopped particle system '{particleSystem.name}'.");
         }
     }
 

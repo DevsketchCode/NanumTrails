@@ -22,10 +22,13 @@ public class NPCConversationTriggerEditor : Editor
     private SerializedProperty _questRewardQuantityProp; // SerializedProperty for quest reward quantity
     private SerializedProperty _npcFollowerProp; // SerializedProperty for NPCFollower
     private SerializedProperty _shouldFollowPlayerOnQuestCompleteProp; // SerializedProperty for shouldFollowPlayer
-    private SerializedProperty _enableConditionalVisibilityProp; // SerializedProperty for enableConditionalVisibility
-    private SerializedProperty _itemForVisibilityCheckProp; // SerializedProperty for itemForVisibilityCheck
-    private SerializedProperty _targetSpriteRendererProp; // SerializedProperty for targetSpriteRenderer
-    private SerializedProperty _targetPolygonColliderProp; // SerializedProperty for targetPolygonCollider
+    // Removed conditional visibility properties as they are no longer in NPCConversationTrigger.cs
+    // private SerializedProperty _enableConditionalVisibilityProp;
+    // private SerializedProperty _itemForVisibilityCheckProp;
+    // private SerializedProperty _targetSpriteRendererProp;
+    // private SerializedProperty _targetPolygonColliderProp;
+    private SerializedProperty _friendAddedParticleSystemProp; // NEW: SerializedProperty for particle system
+    private SerializedProperty _particleSystemDisplayDurationProp; // NEW: SerializedProperty for particle system duration
     private SerializedProperty _hasQuestBeenAcceptedProp;
     private SerializedProperty _hasQuestBeenCompletedProp;
 
@@ -39,7 +42,6 @@ public class NPCConversationTriggerEditor : Editor
         // tries to draw an inspector for a null or invalid object.
         if (target == null)
         {
-            // Debug.LogWarning("NPCConversationTriggerEditor: Target object is null in OnEnable. Skipping property initialization.");
             return;
         }
 
@@ -65,28 +67,12 @@ public class NPCConversationTriggerEditor : Editor
         _npcFollowerProp = serializedObject.FindProperty("_npcFollower");
         _shouldFollowPlayerOnQuestCompleteProp = serializedObject.FindProperty("_shouldFollowPlayerOnQuestComplete");
 
-        // NEW: Ensure these conditional visibility properties are found
-        _enableConditionalVisibilityProp = serializedObject.FindProperty("_enableConditionalVisibility");
-        _itemForVisibilityCheckProp = serializedObject.FindProperty("_itemForVisibilityCheck");
-        _targetSpriteRendererProp = serializedObject.FindProperty("_targetSpriteRenderer");
-        _targetPolygonColliderProp = serializedObject.FindProperty("_targetPolygonCollider");
+        // NEW: Ensure these particle system properties are found
+        _friendAddedParticleSystemProp = serializedObject.FindProperty("_friendAddedParticleSystem");
+        _particleSystemDisplayDurationProp = serializedObject.FindProperty("_particleSystemDisplayDuration");
 
         _hasQuestBeenAcceptedProp = serializedObject.FindProperty("_hasQuestBeenAccepted");
         _hasQuestBeenCompletedProp = serializedObject.FindProperty("_hasQuestBeenCompleted");
-
-        // Optional: Add debug logs to confirm properties are found
-        // if (_conversationNodesProp == null) Debug.LogError("NPCConversationTriggerEditor: _conversationNodes property not found!");
-        // if (_npcNameProp == null) Debug.LogError("NPCConversationTriggerEditor: _npcName property not found!");
-        // if (_questNameProp == null) Debug.LogError("NPCConversationTriggerEditor: _questName property not found!");
-        // if (_questSummaryProp == null) Debug.LogError("NPCConversationTriggerEditor: _questSummary property not found!");
-        // if (_questRewardItemProp == null) Debug.LogError("NPCConversationTriggerEditor: _questRewardItem property not found!");
-        // if (_questRewardQuantityProp == null) Debug.LogError("NPCConversationTriggerEditor: _questRewardQuantity property not found!");
-        // if (_npcFollowerProp == null) Debug.LogError("NPCConversationTriggerEditor: _npcFollower property not found!");
-        // if (_shouldFollowPlayerOnQuestCompleteProp == null) Debug.LogError("NPCConversationTriggerEditor: _shouldFollowPlayerOnQuestComplete property not found!");
-        // if (_enableConditionalVisibilityProp == null) Debug.LogError("NPCConversationTriggerEditor: _enableConditionalVisibility property not found!");
-        // if (_itemForVisibilityCheckProp == null) Debug.LogError("NPCConversationTriggerEditor: _itemForVisibilityCheck property not found!");
-        // if (_targetSpriteRendererProp == null) Debug.LogError("NPCConversationTriggerEditor: _targetSpriteRenderer property not found!");
-        // if (_targetPolygonColliderProp == null) Debug.LogError("NPCConversationTriggerEditor: _targetPolygonCollider property not found!");
     }
 
     /// <summary>
@@ -97,7 +83,6 @@ public class NPCConversationTriggerEditor : Editor
         // Add a null check for target object at the start of OnInspectorGUI as well.
         if (target == null)
         {
-            // If the target is null, there's nothing to draw.
             return;
         }
 
@@ -150,27 +135,11 @@ public class NPCConversationTriggerEditor : Editor
         else EditorGUILayout.HelpBox("Should Follow Player On Quest Complete property not found!", MessageType.Error);
 
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Conditional Visibility", EditorStyles.boldLabel);
-        if (_enableConditionalVisibilityProp != null)
-        {
-            EditorGUILayout.PropertyField(_enableConditionalVisibilityProp);
-            // Only show item and component fields if conditional visibility is enabled
-            if (_enableConditionalVisibilityProp.boolValue)
-            {
-                EditorGUI.indentLevel++;
-                if (_itemForVisibilityCheckProp != null) EditorGUILayout.PropertyField(_itemForVisibilityCheckProp, new GUIContent("Item to Check For"));
-                else EditorGUILayout.HelpBox("Item For Visibility Check property not found!", MessageType.Error);
-                if (_targetSpriteRendererProp != null) EditorGUILayout.PropertyField(_targetSpriteRendererProp, new GUIContent("Sprite Renderer to Affect"));
-                else EditorGUILayout.HelpBox("Target Sprite Renderer property not found!", MessageType.Error);
-                if (_targetPolygonColliderProp != null) EditorGUILayout.PropertyField(_targetPolygonColliderProp, new GUIContent("Polygon Collider to Affect"));
-                else EditorGUILayout.HelpBox("Target Polygon Collider property not found!", MessageType.Error);
-                EditorGUI.indentLevel--;
-            }
-        }
-        else
-        {
-            EditorGUILayout.HelpBox("Enable Conditional Visibility property not found!", MessageType.Error);
-        }
+        EditorGUILayout.LabelField("Particle System Settings", EditorStyles.boldLabel); // NEW: Header for particle system
+        if (_friendAddedParticleSystemProp != null) EditorGUILayout.PropertyField(_friendAddedParticleSystemProp); // NEW
+        else EditorGUILayout.HelpBox("Friend Added Particle System property not found! Ensure '_friendAddedParticleSystem' is serialized in NPCConversationTrigger.cs", MessageType.Error);
+        if (_particleSystemDisplayDurationProp != null) EditorGUILayout.PropertyField(_particleSystemDisplayDurationProp); // NEW
+        else EditorGUILayout.HelpBox("Particle System Display Duration property not found! Ensure '_particleSystemDisplayDuration' is serialized in NPCConversationTrigger.cs", MessageType.Error);
 
         EditorGUILayout.Space();
         // Check if the _conversationNodesProp is not null before drawing it.

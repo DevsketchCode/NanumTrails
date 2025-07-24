@@ -3,6 +3,7 @@ using UnityEngine.UI; // Required for ScrollRect, LayoutGroup, and Button
 using TMPro; // Required for TextMeshProUGUI
 using System.Collections.Generic; // Required for List, Dictionary
 using System.Linq; // Required for .ToList()
+using System.Collections; // Required for Coroutines
 
 /// <summary>
 /// Manages the display of the quest log UI, friends list UI, and inventory UI.
@@ -29,7 +30,7 @@ public class QuestUI : MonoBehaviour
     [Tooltip("The Transform parent for the dynamically created friends entries (e.g., the Content GameObject inside your Friends ScrollView).")]
     [SerializeField] private Transform _friendsEntriesParent; // For dynamic friends list entries
     [Tooltip("The TextMeshProUGUI prefab used to display a single friends entry.")]
-    [SerializeField] private TextMeshProUGUI _friendsEntryPrefab; // NEW: Dedicated prefab for friends entries
+    [SerializeField] private TextMeshProUGUI _friendsEntryPrefab; // Dedicated prefab for friends entries
     [Tooltip("The GameObject representing the icon that indicates the friends list is available. This should be a Button or have a Button component.")]
     [SerializeField] private GameObject _friendsIcon; // Reference to the Friends Icon GameObject
 
@@ -39,23 +40,58 @@ public class QuestUI : MonoBehaviour
     [Tooltip("The Transform parent for the dynamically created inventory entries (e.g., the Content GameObject inside your Inventory ScrollView).")]
     [SerializeField] private Transform _inventoryEntriesParent; // New: For dynamic inventory list entries
     [Tooltip("The TextMeshProUGUI prefab used to display a single inventory entry.")]
-    [SerializeField] private TextMeshProUGUI _inventoryEntryPrefab; // NEW: Dedicated prefab for inventory entries
+    [SerializeField] private TextMeshProUGUI _inventoryEntryPrefab; // Dedicated prefab for inventory entries
     [Tooltip("The GameObject representing the icon that indicates the inventory is available. This should be a Button or have a Button component.")]
     [SerializeField] private GameObject _inventoryIcon; // New: Reference to the Inventory Icon GameObject
 
-    [Header("UI References - Joy Meter")] // NEW: Joy Meter Header
+    [Header("UI References - Joy Meter")] // Joy Meter Header
     [Tooltip("The RectTransform of the parent panel/background for the Joy Meter bar.")]
     [SerializeField] private RectTransform _joyMeterPanelRect; // Reference to the Joy Meter background panel's RectTransform
     [Tooltip("The RectTransform of the image that will fill up the Joy Meter.")]
     [SerializeField] private RectTransform _joyMeterFillRect; // Reference to the Joy Meter fill image's RectTransform
     [Tooltip("The total number of quests that contribute to filling the Joy Meter from 0% to 100%.")]
     [SerializeField] private int _totalQuestsForJoyMeter = 1; // Set this to the total number of quests in your game
+    [Tooltip("The Image GameObject that acts as a glow for the Joy Meter fill bar.")]
+    [SerializeField] private Image _joyMeterGlowImage; // Glow image for Joy Meter
+    [Tooltip("The RectTransform of the Image that acts as a glow for the Joy Meter bar. This will grow with the Joy Meter.")]
+    [SerializeField] private RectTransform _joyMeterGlowRect; // NEW: RectTransform for Joy Meter Glow Image
+    [Tooltip("An additional width to add to the Joy Meter glow image, making it slightly larger than the fill bar.")]
+    [SerializeField] private float _joyMeterGlowExtraWidth = 0f; // NEW: Extra width for the glow image
+    [Tooltip("The Particle System for the Joy Meter fill bar that turns on when it grows.")]
+    [SerializeField] private ParticleSystem _joyMeterParticleSystem; // Particle System for Joy Meter
+    [Tooltip("The duration (in seconds) the Joy Meter particle system should play.")]
+    [SerializeField] private float _joyMeterParticleSystemDuration = 1.0f; // Duration for Joy Meter particle system
+    [Tooltip("The maximum width (in world units) the Joy Meter particle system's shape should scale to.")]
+    [SerializeField] private float _maxParticleSystemWidth = 2.7f; // Max width for particle system shape
+    [Tooltip("An additional X-axis offset for the particle system's local position.")]
+    [SerializeField] private float _joyMeterParticleSystemXOffset = 0f; // NEW: X-axis offset for particle system
+    [Tooltip("The initial percentage (0-1) the Joy Meter should be filled when no friends are added.")]
+    [SerializeField] private float _joyMeterInitialFillPercentage = 0.15f; // NEW: Initial fill percentage
+
+    [Header("Glow Effect Settings")] // Header for glow effect
+    [Tooltip("The duration (in seconds) for each fade-in or fade-out cycle of the glow effect.")]
+    [SerializeField] private float _glowFadeDuration = 0.5f;
+    [Tooltip("The number of times the glow effect should fade in and out.")]
+    [SerializeField] private int _glowCycles = 2;
+    [Tooltip("The GameObject that contains the CanvasGroup for the Quest Button's glow effect (if any).")]
+    [SerializeField] private GameObject _questButtonGlowObject;
+    [Tooltip("The GameObject that contains the CanvasGroup for the Friends Button's glow effect (if any).")]
+    [SerializeField] private GameObject _friendsButtonGlowObject;
+    [Tooltip("The GameObject that contains the CanvasGroup for the Inventory Button's glow effect (if any).")]
+    [SerializeField] private GameObject _inventoryButtonGlowObject;
+
 
     private CanvasGroup _questLogCanvasGroup; // Reference to the CanvasGroup on _questLogPanel
     private CanvasGroup _friendsCanvasGroup; // Reference to the CanvasGroup on _friendsPanel
-    private CanvasGroup _inventoryCanvasGroup; // New: Reference to the CanvasGroup on _inventoryPanel
+    private CanvasGroup _inventoryCanvasGroup; // Reference to the CanvasGroup on _inventoryPanel
+    private CanvasGroup _joyMeterGlowCanvasGroup; // CanvasGroup for Joy Meter glow
 
-    private float _maxJoyMeterFillWidth; // NEW: Stores the initial full width of the fill image
+    private float _maxJoyMeterFillWidth; // Stores the initial full width of the fill image
+
+    // Dictionary to keep track of active glow coroutines for each CanvasGroup
+    private Dictionary<CanvasGroup, Coroutine> _activeGlowCoroutines = new Dictionary<CanvasGroup, Coroutine>();
+    // Dictionary to keep track of active particle system coroutines
+    private Dictionary<ParticleSystem, Coroutine> _activeParticleSystemCoroutines = new Dictionary<ParticleSystem, Coroutine>();
 
     /// <summary>
     /// Property to check if the quest log is currently open.
@@ -68,7 +104,7 @@ public class QuestUI : MonoBehaviour
     /// <summary>
     /// Property to check if the inventory is currently open.
     /// </summary>
-    public bool IsInventoryOpen { get; private set; } // New: Property for inventory state
+    public bool IsInventoryOpen { get; private set; } // Property for inventory state
 
     /// <summary>
     /// Called when the script instance is being loaded.
@@ -111,6 +147,32 @@ public class QuestUI : MonoBehaviour
             return;
         }
 
+        // Get CanvasGroup for Joy Meter Glow
+        if (_joyMeterGlowImage != null)
+        {
+            _joyMeterGlowCanvasGroup = _joyMeterGlowImage.GetComponent<CanvasGroup>();
+            if (_joyMeterGlowCanvasGroup == null)
+            {
+                Debug.LogWarning("QuestUI: Joy Meter Glow Image does not have a CanvasGroup component. Adding one.");
+                _joyMeterGlowCanvasGroup = _joyMeterGlowImage.gameObject.AddComponent<CanvasGroup>();
+            }
+            // Get RectTransform for Joy Meter Glow Image
+            _joyMeterGlowRect = _joyMeterGlowImage.GetComponent<RectTransform>();
+            if (_joyMeterGlowRect == null)
+            {
+                Debug.LogError("QuestUI: Joy Meter Glow Image must have a RectTransform component!");
+                enabled = false;
+                return;
+            }
+        }
+
+        // Ensure Joy Meter Particle System is stopped initially
+        if (_joyMeterParticleSystem != null)
+        {
+            _joyMeterParticleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
+
+
         // Validate essential dynamic content parents
         if (_questEntriesParent == null)
         {
@@ -136,21 +198,21 @@ public class QuestUI : MonoBehaviour
             enabled = false;
             return;
         }
-        // NEW: Validate friends entry prefab
+        // Validate friends entry prefab
         if (_friendsEntryPrefab == null)
         {
             Debug.LogError("QuestUI: Friends Entry Prefab is not assigned!");
             enabled = false;
             return;
         }
-        // NEW: Validate inventory entry prefab
+        // Validate inventory entry prefab
         if (_inventoryEntryPrefab == null)
         {
             Debug.LogError("QuestUI: Inventory Entry Prefab is not assigned!");
             enabled = false;
             return;
         }
-        // NEW: Validate Joy Meter RectTransforms
+        // Validate Joy Meter RectTransforms
         if (_joyMeterPanelRect == null)
         {
             Debug.LogError("QuestUI: Joy Meter Panel Rect is not assigned!");
@@ -168,7 +230,7 @@ public class QuestUI : MonoBehaviour
         // Ensure all panels and icons are hidden initially.
         HideQuestLogImmediately();
         HideFriendsListImmediately();
-        HideInventoryImmediately(); // New: Hide inventory panel initially
+        HideInventoryImmediately(); // Hide inventory panel initially
 
         // Setup Quest Icon Button Listener
         if (_questIcon != null)
@@ -226,7 +288,34 @@ public class QuestUI : MonoBehaviour
         {
             Debug.LogWarning("QuestUI: Inventory Icon GameObject is not assigned.");
         }
+
+        // Ensure all glow objects are initially transparent and inactive
+        InitializeGlowObject(_joyMeterGlowImage?.gameObject);
+        InitializeGlowObject(_questButtonGlowObject);
+        InitializeGlowObject(_friendsButtonGlowObject);
+        InitializeGlowObject(_inventoryButtonGlowObject);
     }
+
+    /// <summary>
+    /// Initializes a glow GameObject by ensuring it has a CanvasGroup and is hidden.
+    /// </summary>
+    /// <param name="glowObject">The GameObject to initialize.</param>
+    private void InitializeGlowObject(GameObject glowObject)
+    {
+        if (glowObject != null)
+        {
+            CanvasGroup cg = glowObject.GetComponent<CanvasGroup>();
+            if (cg == null)
+            {
+                cg = glowObject.AddComponent<CanvasGroup>();
+            }
+            cg.alpha = 0f;
+            cg.interactable = false;
+            cg.blocksRaycasts = false;
+            glowObject.SetActive(false);
+        }
+    }
+
 
     /// <summary>
     /// Start is called on the frame when a script is first enabled just before any Update methods are called the first time.
@@ -243,7 +332,7 @@ public class QuestUI : MonoBehaviour
         }
 
         // Initialize Joy Meter to 15% after UI layout has been built
-        UpdateJoyMeterDisplay();
+        UpdateJoyMeterVisualOnly(); // Call the private method for initial fill
     }
 
     /// <summary>
@@ -485,8 +574,8 @@ public class QuestUI : MonoBehaviour
             HideQuestIcon();
         }
 
-        // NEW: Update Joy Meter display after quest list is updated
-        UpdateJoyMeterDisplay();
+        // Only update the visual fill here, do not trigger effects
+        UpdateJoyMeterVisualOnly(); // Calling the new method
     }
 
     /// <summary>
@@ -573,45 +662,123 @@ public class QuestUI : MonoBehaviour
 
     /// <summary>
     /// Updates the visual fill level of the Joy Meter based on completed quests.
+    /// This method only handles the visual resizing of the bar.
     /// </summary>
-    public void UpdateJoyMeterDisplay() // NEW: Method to update Joy Meter
+    private void _UpdateJoyMeterVisualFill() // Renamed to be private and only handle visual fill
     {
-        if (_joyMeterPanelRect == null || _joyMeterFillRect == null || _totalQuestsForJoyMeter <= 0 || QuestManager.Instance == null)
+        if (_joyMeterPanelRect == null || _joyMeterFillRect == null || QuestManager.Instance == null)
         {
-            Debug.LogWarning("QuestUI: Joy Meter references or total quests not set up correctly. Cannot update display.");
+            Debug.LogWarning("QuestUI: Joy Meter references or QuestManager not set up correctly. Cannot update display.");
             return;
         }
 
-        int numCompletedQuests = QuestManager.Instance.GetAllQuests().Count(q => q.IsCompleted);
-        float progress = (float)numCompletedQuests / _totalQuestsForJoyMeter;
+        int friendsCount = QuestManager.Instance.GetFriends().Count;
+        int totalPossibleFriends = QuestManager.Instance.GetTotalPossibleFriends();
+
+        float progress = 0f;
+        if (totalPossibleFriends > 0)
+        {
+            // Calculate the portion of the meter filled by friends, relative to the remaining 1 - initial fill
+            float fillPerFriend = (1f - _joyMeterInitialFillPercentage) / totalPossibleFriends;
+            progress = _joyMeterInitialFillPercentage + (friendsCount * fillPerFriend);
+        }
+        else
+        {
+            // If no possible friends defined, just use the initial fill percentage
+            progress = _joyMeterInitialFillPercentage;
+        }
 
         // Clamp progress between 0 and 1
         progress = Mathf.Clamp01(progress);
 
-        // Apply the 15% minimum visual fill if no quests are completed yet
-        float minFillPercentage = 0.15f;
-        float actualFillProgress = Mathf.Max(minFillPercentage, progress);
-
         // Calculate target width based on the CAPTURED MAX FILL WIDTH
-        float targetWidth = _maxJoyMeterFillWidth * actualFillProgress;
+        float targetWidth = _maxJoyMeterFillWidth * progress;
 
-        Debug.Log($"Joy Meter: Completed Quests = {numCompletedQuests}, Progress = {progress:F2}, Actual Fill Progress = {actualFillProgress:F2}, Max Fill Width = {_maxJoyMeterFillWidth:F2}, Target Width = {targetWidth:F2}");
-
+        Debug.Log($"Joy Meter: Friends = {friendsCount}/{totalPossibleFriends}, Progress = {progress:F2}, Target Width = {targetWidth:F2}");
 
         // Set the width of the fill image's RectTransform.
         // Ensure _joyMeterFillRect's anchors are set to (0, 0.5) for min and max, and pivot to (0, 0.5) in Inspector
         // for left-aligned scaling.
         _joyMeterFillRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, targetWidth);
+
+        // Also set the width of the glow image's RectTransform to match, plus the extra width
+        if (_joyMeterGlowRect != null)
+        {
+            _joyMeterGlowRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, targetWidth + _joyMeterGlowExtraWidth);
+        }
     }
 
     /// <summary>
-    /// Shows the Quest Icon.
+    /// Public method to update the Joy Meter's visual fill only, without triggering effects.
+    /// </summary>
+    public void UpdateJoyMeterVisualOnly()
+    {
+        _UpdateJoyMeterVisualFill();
+    }
+
+    /// <summary>
+    /// Updates the Joy Meter's visual fill and triggers its associated particle and glow effects.
+    /// This method should be called when a friend is added to the list.
+    /// </summary>
+    public void UpdateJoyMeterAndTriggerEffects()
+    {
+        UpdateJoyMeterVisualOnly(); // Corrected: Calling the public method UpdateJoyMeterVisualOnly()
+
+        // Then, trigger the particle system and glow effects
+        // Recalculate normalized progress from current width, as _UpdateJoyMeterVisualFill might have changed it
+        float currentFillWidth = _joyMeterFillRect.rect.width;
+        float normalizedProgress = currentFillWidth / _maxJoyMeterFillWidth;
+
+        UpdateJoyMeterParticleSystemVisuals(normalizedProgress);
+        if (_joyMeterParticleSystem != null)
+        {
+            StartParticleSystemEffect(_joyMeterParticleSystem, _joyMeterParticleSystemDuration);
+        }
+
+        if (_joyMeterGlowCanvasGroup != null)
+        {
+            StartGlowEffect(_joyMeterGlowCanvasGroup);
+        }
+    }
+
+    /// <summary>
+    /// Updates the size and position of the Joy Meter's particle system to match the fill bar's width and align it to the left.
+    /// </summary>
+    /// <param name="normalizedProgress">The normalized progress (0-1) of the Joy Meter fill bar.</param>
+    private void UpdateJoyMeterParticleSystemVisuals(float normalizedProgress)
+    {
+        if (_joyMeterParticleSystem != null)
+        {
+            var shape = _joyMeterParticleSystem.shape;
+            // Scale the X dimension of the box shape based on the normalized progress and the defined max particle system width.
+            // The Y and Z dimensions can be set to match the height of the fill rect or a fixed value.
+            float particleSystemWidth = _maxParticleSystemWidth * normalizedProgress;
+            shape.scale = new Vector3(particleSystemWidth, _joyMeterFillRect.rect.height, shape.scale.z);
+
+            // Adjust the local position of the particle system so its center aligns with the center
+            // of the _joyMeterFillRect, then apply the custom offset.
+            // This assumes the particle system's pivot/origin is at its center.
+            _joyMeterParticleSystem.transform.localPosition = new Vector3((_joyMeterFillRect.rect.width / 2f) + _joyMeterParticleSystemXOffset, 0f, 0f);
+
+            Debug.Log($"Joy Meter Particle System: Resized to width {particleSystemWidth:F2} and positioned at X: {(_joyMeterFillRect.rect.width / 2f) + _joyMeterParticleSystemXOffset:F2}");
+        }
+    }
+
+
+    /// <summary>
+    /// Shows the Quest Icon and starts its glow effect.
     /// </summary>
     public void ShowQuestIcon()
     {
         if (_questIcon != null)
         {
             _questIcon.SetActive(true);
+            // Start glow effect for Quest Button
+            if (_questButtonGlowObject != null)
+            {
+                CanvasGroup glowCG = _questButtonGlowObject.GetComponent<CanvasGroup>();
+                if (glowCG != null) StartGlowEffect(glowCG);
+            }
         }
     }
 
@@ -623,17 +790,35 @@ public class QuestUI : MonoBehaviour
         if (_questIcon != null)
         {
             _questIcon.SetActive(false);
+            // Stop glow effect for Quest Button if active
+            if (_questButtonGlowObject != null)
+            {
+                CanvasGroup glowCG = _questButtonGlowObject.GetComponent<CanvasGroup>();
+                if (glowCG != null && _activeGlowCoroutines.ContainsKey(glowCG))
+                {
+                    StopCoroutine(_activeGlowCoroutines[glowCG]);
+                    _activeGlowCoroutines.Remove(glowCG);
+                    glowCG.alpha = 0f;
+                    glowCG.gameObject.SetActive(false);
+                }
+            }
         }
     }
 
     /// <summary>
-    /// Shows the Friends Icon.
+    /// Shows the Friends Icon and starts its glow effect.
     /// </summary>
     public void ShowFriendsIcon()
     {
         if (_friendsIcon != null)
         {
             _friendsIcon.SetActive(true);
+            // Start glow effect for Friends Button
+            if (_friendsButtonGlowObject != null)
+            {
+                CanvasGroup glowCG = _friendsButtonGlowObject.GetComponent<CanvasGroup>();
+                if (glowCG != null) StartGlowEffect(glowCG);
+            }
         }
     }
 
@@ -645,17 +830,35 @@ public class QuestUI : MonoBehaviour
         if (_friendsIcon != null)
         {
             _friendsIcon.SetActive(false);
+            // Stop glow effect for Friends Button if active
+            if (_friendsButtonGlowObject != null)
+            {
+                CanvasGroup glowCG = _friendsButtonGlowObject.GetComponent<CanvasGroup>();
+                if (glowCG != null && _activeGlowCoroutines.ContainsKey(glowCG))
+                {
+                    StopCoroutine(_activeGlowCoroutines[glowCG]);
+                    _activeGlowCoroutines.Remove(glowCG);
+                    glowCG.alpha = 0f;
+                    glowCG.gameObject.SetActive(false);
+                }
+            }
         }
     }
 
     /// <summary>
-    /// Shows the Inventory Icon.
+    /// Shows the Inventory Icon and starts its glow effect.
     /// </summary>
     public void ShowInventoryIcon()
     {
         if (_inventoryIcon != null)
         {
             _inventoryIcon.SetActive(true);
+            // Start glow effect for Inventory Button
+            if (_inventoryButtonGlowObject != null)
+            {
+                CanvasGroup glowCG = _inventoryButtonGlowObject.GetComponent<CanvasGroup>();
+                if (glowCG != null) StartGlowEffect(glowCG);
+            }
         }
     }
 
@@ -667,6 +870,128 @@ public class QuestUI : MonoBehaviour
         if (_inventoryIcon != null)
         {
             _inventoryIcon.SetActive(false);
+            // Stop glow effect for Inventory Button if active
+            if (_inventoryButtonGlowObject != null)
+            {
+                CanvasGroup glowCG = _inventoryButtonGlowObject.GetComponent<CanvasGroup>();
+                if (glowCG != null && _activeGlowCoroutines.ContainsKey(glowCG))
+                {
+                    StopCoroutine(_activeGlowCoroutines[glowCG]);
+                    _activeGlowCoroutines.Remove(glowCG);
+                    glowCG.alpha = 0f;
+                    glowCG.gameObject.SetActive(false);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Starts a glow effect on the provided CanvasGroup.
+    /// Manages stopping previous glow coroutines for the same CanvasGroup.
+    /// </summary>
+    /// <param name="glowCanvasGroup">The CanvasGroup of the GameObject to glow.</param>
+    public void StartGlowEffect(CanvasGroup glowCanvasGroup)
+    {
+        if (glowCanvasGroup == null)
+        {
+            Debug.LogWarning("QuestUI: Cannot start glow effect, CanvasGroup is null.");
+            return;
+        }
+
+        // Stop any existing glow coroutine for this CanvasGroup
+        if (_activeGlowCoroutines.ContainsKey(glowCanvasGroup) && _activeGlowCoroutines[glowCanvasGroup] != null)
+        {
+            StopCoroutine(_activeGlowCoroutines[glowCanvasGroup]);
+            _activeGlowCoroutines.Remove(glowCanvasGroup);
+        }
+
+        // Start new glow coroutine
+        Coroutine newGlow = StartCoroutine(GlowCoroutine(glowCanvasGroup));
+        _activeGlowCoroutines[glowCanvasGroup] = newGlow;
+    }
+
+    /// <summary>
+    /// Coroutine to handle the fading in and out of a CanvasGroup for a glow effect.
+    /// </summary>
+    /// <param name="canvasGroup">The CanvasGroup to animate.</param>
+    private IEnumerator GlowCoroutine(CanvasGroup canvasGroup)
+    {
+        canvasGroup.gameObject.SetActive(true);
+        canvasGroup.interactable = false; // Glow should not block interaction
+        canvasGroup.blocksRaycasts = false; // Glow should not block raycasts
+
+        for (int i = 0; i < _glowCycles; i++)
+        {
+            // Fade In
+            float timer = 0f;
+            while (timer < _glowFadeDuration)
+            {
+                canvasGroup.alpha = Mathf.Lerp(0f, 1f, timer / _glowFadeDuration);
+                timer += Time.deltaTime;
+                yield return null;
+            }
+            canvasGroup.alpha = 1f; // Ensure fully opaque
+
+            // Fade Out
+            timer = 0f;
+            while (timer < _glowFadeDuration)
+            {
+                canvasGroup.alpha = Mathf.Lerp(1f, 0f, timer / _glowFadeDuration);
+                timer += Time.deltaTime;
+                yield return null;
+            }
+            canvasGroup.alpha = 0f; // Ensure fully transparent
+        }
+
+        canvasGroup.gameObject.SetActive(false); // Deactivate after all cycles
+        if (_activeGlowCoroutines.ContainsKey(canvasGroup))
+        {
+            _activeGlowCoroutines.Remove(canvasGroup);
+        }
+    }
+
+    /// <summary>
+    /// Starts a particle system effect for a specified duration.
+    /// Manages stopping previous particle system coroutines for the same particle system.
+    /// </summary>
+    /// <param name="particleSystem">The ParticleSystem to play.</param>
+    /// <param name="duration">How long (in seconds) the particle system should play.</param>
+    public void StartParticleSystemEffect(ParticleSystem particleSystem, float duration)
+    {
+        if (particleSystem == null)
+        {
+            Debug.LogWarning("QuestUI: Cannot start particle system effect, ParticleSystem is null.");
+            return;
+        }
+
+        // Stop any existing particle system coroutine for this ParticleSystem
+        if (_activeParticleSystemCoroutines.ContainsKey(particleSystem) && _activeParticleSystemCoroutines[particleSystem] != null)
+        {
+            StopCoroutine(_activeParticleSystemCoroutines[particleSystem]);
+            _activeParticleSystemCoroutines.Remove(particleSystem);
+        }
+
+        // Start new particle system coroutine
+        Coroutine newParticleSystem = StartCoroutine(ParticleSystemCoroutine(particleSystem, duration));
+        _activeParticleSystemCoroutines[particleSystem] = newParticleSystem;
+    }
+
+    /// <summary>
+    /// Coroutine to handle playing and stopping a particle system after a duration.
+    /// </summary>
+    /// <param name="particleSystem">The ParticleSystem to animate.</param>
+    /// <param name="duration">The duration (in seconds) to play the particle system.</param>
+    private IEnumerator ParticleSystemCoroutine(ParticleSystem particleSystem, float duration)
+    {
+        particleSystem.Play();
+        Debug.Log($"Playing particle system '{particleSystem.name}' for {duration} seconds.");
+        yield return new WaitForSeconds(duration);
+        particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        Debug.Log($"Stopped particle system '{particleSystem.name}'.");
+
+        if (_activeParticleSystemCoroutines.ContainsKey(particleSystem))
+        {
+            _activeParticleSystemCoroutines.Remove(particleSystem);
         }
     }
 }
