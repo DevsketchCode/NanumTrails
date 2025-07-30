@@ -229,10 +229,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 467933604}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 1}
-  m_AnchorMax: {x: 0.5, y: 1}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: -50}
-  m_SizeDelta: {x: 400, y: 100}
+  m_SizeDelta: {x: -1320, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &891425199
 MonoBehaviour:
@@ -17176,10 +17176,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 467933604}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: -200, y: -200}
+  m_AnchoredPosition: {x: 100, y: -440}
+  m_SizeDelta: {x: -400, y: 680}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1627682642
 MonoBehaviour:
@@ -17201,17 +17201,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Developer: David Oberlander
-
-    Art: David Oberlander
-
-    Joystick Pack:
-    Fenerax Studios
-
-    Music: Grand_Project from Pixabay
-
-    Font: (Google Fonts)
-    Black Han Sans by Zess Type '
+  m_text: "Developer: David Oberlander (DevSketch)\nArt: David Oberlander (DevSketch)\nJoystick
+    Pack: Fenerax Studios\nMusic: Grand_Project from Pixabay\nFonts: \n           
+    (Google Fonts) Black Han Sans by Zess Type \n            (Google Fonts) Candal
+    by Vernon Adams"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -17245,7 +17238,7 @@ MonoBehaviour:
   m_fontSizeMin: 18
   m_fontSizeMax: 45
   m_fontStyle: 0
-  m_HorizontalAlignment: 2
+  m_HorizontalAlignment: 1
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0

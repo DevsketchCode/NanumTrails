@@ -1,11 +1,16 @@
 using UnityEngine;
 using System.Collections.Generic; // Required for List
+using UnityEngine.UI; // Required for Button
+using TMPro; // Required for TextMeshProUGUI
 
 /// <summary>
 /// Controls the visibility of SpriteRenderers on child GameObjects and the enabled state of a PolygonCollider2D
 /// on the parent GameObject, based on whether the player possesses a specific ItemData in their inventory.
 /// This script should be attached to the parent GameObject.
+/// Also displays a customizable popup message when the player enters its trigger zone
+/// and does NOT have the required item.
 /// </summary>
+[RequireComponent(typeof(Collider2D))] // Requires a Collider2D to detect trigger. Make sure it's set to 'Is Trigger'.
 public class ConditionalVisibilityController : MonoBehaviour
 {
     [Header("Conditional Visibility Settings")]
@@ -26,8 +31,25 @@ public class ConditionalVisibilityController : MonoBehaviour
     // Reference to the CapsuleCollider2D on THIS GameObject that will act as the trigger for updates
     private CapsuleCollider2D _triggerCollider;
 
-    // NEW: Flag to track if this specific object has been activated by item consumption
+    // Flag to track if this specific object has been activated by item consumption
     private bool _isActivatedByItemConsumption = false;
+
+    [Header("Popup UI References")] // NEW: Header for popup UI elements
+    [Tooltip("The root GameObject of the popup UI panel (should have a CanvasGroup).")]
+    [SerializeField] private GameObject _popupPanel;
+    [Tooltip("The TextMeshProUGUI component where the popup message will be displayed.")]
+    [SerializeField] private TextMeshProUGUI _messageText;
+    [Tooltip("The Button for closing the popup.")]
+    [SerializeField] private Button _closeButton;
+
+    [Header("Popup Settings")] // NEW: Header for popup message content
+    [Tooltip("The message text to display in the popup when the player does NOT have the item.")]
+    [TextArea(3, 5)]
+    [SerializeField] private string _popupMessage = "You need a specific item to proceed!";
+
+    private PlayerController _playerController;
+    private CanvasGroup _popupCanvasGroup; // Cached CanvasGroup for controlling visibility and interaction
+    private bool _isPopupActive = false; // Flag to prevent re-triggering while active
 
     /// <summary>
     /// Called when the script instance is being loaded.
@@ -53,6 +75,41 @@ public class ConditionalVisibilityController : MonoBehaviour
             _triggerCollider.isTrigger = true;
         }
 
+        // Get PlayerController instance
+        _playerController = PlayerController.Instance;
+        if (_playerController == null)
+        {
+            Debug.LogError("ConditionalVisibilityController: PlayerController.Instance not found! Ensure PlayerController is in the scene and set up as a singleton.");
+        }
+
+        // Get CanvasGroup from the popup panel
+        if (_popupPanel != null)
+        {
+            _popupCanvasGroup = _popupPanel.GetComponent<CanvasGroup>();
+            if (_popupCanvasGroup == null)
+            {
+                _popupCanvasGroup = _popupPanel.AddComponent<CanvasGroup>();
+                Debug.LogWarning($"ConditionalVisibilityController on {gameObject.name}: Added missing CanvasGroup to popup panel '{_popupPanel.name}'.");
+            }
+        }
+        else
+        {
+            Debug.LogError($"ConditionalVisibilityController on {gameObject.name}: Popup Panel GameObject is not assigned in the Inspector!");
+        }
+
+        // Set up close button listener
+        if (_closeButton != null)
+        {
+            _closeButton.onClick.AddListener(OnCloseButtonClicked);
+        }
+        else
+        {
+            Debug.LogWarning($"ConditionalVisibilityController on {gameObject.name}: Close Button is not assigned in the Inspector!");
+        }
+
+        // Initially hide the popup UI
+        HidePopup(instant: true);
+
         // Note: _targetSpriteRenderers are expected to be assigned manually in the Inspector
         // as they are on child GameObjects. No automatic GetComponent for children here.
     }
@@ -69,7 +126,7 @@ public class ConditionalVisibilityController : MonoBehaviour
 
     /// <summary>
     /// Called when another collider enters this trigger.
-    /// This will now trigger the visibility update and potentially consume an item.
+    /// This will now trigger the visibility update and potentially consume an item or show a popup.
     /// </summary>
     /// <param name="other">The other Collider2D involved in this collision.</param>
     private void OnTriggerEnter2D(Collider2D other)
@@ -93,10 +150,11 @@ public class ConditionalVisibilityController : MonoBehaviour
                     return;
                 }
 
-                // Check if the player has the required item
-                if (InventoryManager.Instance.HasItem(_itemForVisibilityCheck))
+                bool hasItem = InventoryManager.Instance.HasItem(_itemForVisibilityCheck);
+
+                if (hasItem)
                 {
-                    // Attempt to remove one instance of the item
+                    // If player has the item, attempt to remove it and activate the object
                     if (InventoryManager.Instance.RemoveItem(_itemForVisibilityCheck, 1))
                     {
                         _isActivatedByItemConsumption = true; // Mark this object as permanently activated
@@ -105,16 +163,32 @@ public class ConditionalVisibilityController : MonoBehaviour
                     else
                     {
                         Debug.LogWarning($"ConditionalVisibilityController on {gameObject.name}: Failed to remove {_itemForVisibilityCheck.ItemName} from inventory, even though player reportedly has it.");
+                        // If removal fails, still show popup as player can't proceed
+                        ShowPopup();
                     }
                 }
-                else
+                else // Player DOES NOT have the required item
                 {
-                    Debug.Log($"ConditionalVisibilityController on {gameObject.name}: Player does not have {_itemForVisibilityCheck.ItemName}. Cannot activate.");
+                    Debug.Log($"ConditionalVisibilityController on {gameObject.name}: Player does not have {_itemForVisibilityCheck.ItemName}. Displaying popup.");
+                    ShowPopup(); // Show popup when item is missing
                 }
             }
             // Always update visibility after a trigger, even if not consuming an item,
             // or if it's already activated, to ensure the correct state is displayed.
             UpdateVisibility();
+        }
+    }
+
+    /// <summary>
+    /// Called when another collider exits this trigger.
+    /// </summary>
+    /// <param name="other">The other Collider2D involved in this collision.</param>
+    private void OnTriggerExit2D(Collider2D other)
+    {
+        // Check if the collider exiting the trigger is the player and the popup is active
+        if (other.CompareTag("Player") && _isPopupActive)
+        {
+            HidePopup();
         }
     }
 
@@ -219,5 +293,69 @@ public class ConditionalVisibilityController : MonoBehaviour
                 // Debug.Log($"ConditionalVisibilityController on {gameObject.name}: PolygonCollider2D enabled because player does NOT have {_itemForVisibilityCheck.ItemName}.");
             }
         }
+    }
+
+    /// <summary>
+    /// Displays the popup message and pauses player movement.
+    /// </summary>
+    private void ShowPopup()
+    {
+        if (_popupPanel == null || _messageText == null || _popupCanvasGroup == null)
+        {
+            Debug.LogError($"ConditionalVisibilityController on {gameObject.name}: Cannot show popup. UI references are missing.");
+            return;
+        }
+
+        // Only show if not already active to prevent re-triggering while visible
+        if (_isPopupActive) return;
+
+        _messageText.text = _popupMessage;
+        _popupPanel.SetActive(true);
+        _popupCanvasGroup.alpha = 1f;
+        _popupCanvasGroup.interactable = true;
+        _popupCanvasGroup.blocksRaycasts = true;
+        _isPopupActive = true;
+
+        if (_playerController != null)
+        {
+            _playerController.SetMovementEnabled(false);
+        }
+        Debug.Log($"ConditionalVisibilityController on {gameObject.name}: Popup displayed with message: '{_popupMessage}'");
+    }
+
+    /// <summary>
+    /// Hides the popup message and resumes player movement.
+    /// </summary>
+    /// <param name="instant">If true, hides instantly without fading. Useful for initial setup.</param>
+    private void HidePopup(bool instant = false)
+    {
+        if (_popupPanel == null || _popupCanvasGroup == null)
+        {
+            return;
+        }
+
+        // Only hide if currently active
+        if (!_isPopupActive && !instant) return; // If not active and not an instant hide, do nothing
+
+        _popupCanvasGroup.alpha = 0f;
+        _popupCanvasGroup.interactable = false;
+        _popupCanvasGroup.blocksRaycasts = false;
+        _popupPanel.SetActive(false);
+        _isPopupActive = false;
+
+        if (_playerController != null)
+        {
+            _playerController.SetMovementEnabled(true);
+        }
+        Debug.Log($"ConditionalVisibilityController on {gameObject.name}: Popup hidden.");
+    }
+
+    /// <summary>
+    /// Callback for when the close button is clicked.
+    /// </summary>
+    private void OnCloseButtonClicked()
+    {
+        HidePopup();
+        Debug.Log($"ConditionalVisibilityController on {gameObject.name}: Close button clicked.");
     }
 }

@@ -113,6 +113,8 @@ MonoBehaviour:
   _stopDistanceThreshold: 0.1
   _playerProximityStopDistance: 0.7
   _followDelayFrames: 10
+  _horizontalVelocityDeadZone: 0.01
+  _verticalVelocityDeadZone: 0.01
 --- !u!114 &7609339227925870264
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -205,7 +207,8 @@ MonoBehaviour:
     IsQuestDeliverChoicePositive: 1
     IsQuestDeliverChoiceAlternate: 0
   - Speaker: 0
-    Dialogue: Wahoo!! Thank you so so very much!!!!
+    Dialogue: YES! Thank you so so very much! Here is a Long Bridge that can help
+      you cross a large river.
     PlayerResponsePositiveText: Yes, here it is!
     PlayerResponseAlternateText: Not yet.
     NextNodeIndexPositive: 0

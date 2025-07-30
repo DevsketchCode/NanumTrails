@@ -113,6 +113,8 @@ MonoBehaviour:
   _stopDistanceThreshold: 0.1
   _playerProximityStopDistance: 0.7
   _followDelayFrames: 10
+  _horizontalVelocityDeadZone: 0.01
+  _verticalVelocityDeadZone: 0.01
 --- !u!114 &3741919556561793432
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -220,7 +222,7 @@ MonoBehaviour:
     IsQuestDeliverChoiceAlternate: 0
   - Speaker: 0
     Dialogue: Awesome! *Knock Knock Knock* Here are some bridges that will help you
-      cross the river.
+      cross the small rivers.
     PlayerResponsePositiveText: Yes, here they are!
     PlayerResponseAlternateText: Not yet.
     NextNodeIndexPositive: 0

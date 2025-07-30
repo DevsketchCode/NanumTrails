@@ -49,7 +49,7 @@ public class PlayerController : MonoBehaviour
 
     [Tooltip("The minimum absolute value of vertical input required to register vertical movement for animations. Values below this will be treated as zero.")]
     [SerializeField]
-    private float _verticalInputDeadZone = 0.01f; // New: Dead zone for vertical input
+    private float _verticalInputDeadZone = 0.01f; // New: Dead zone for vertical velocity
 
     [Header("Joystick Integration")]
     [Tooltip("Drag your VariableJoystick UI element here from the scene.")]
@@ -76,7 +76,10 @@ public class PlayerController : MonoBehaviour
     // Boolean to control if player movement is currently enabled (e.g., paused during conversation).
     private bool _isMovementEnabled = true;
 
-    // NEW: Store the last calculated movement velocity for external access (e.g., NPCFollower)
+    // Flag to indicate if the player is at a firepit spot, preventing FixedUpdate from overriding animations.
+    private bool _isAtFirepitSpot = false;
+
+    // Store the last calculated movement velocity for external access (e.g., NPCFollower)
     public Vector2 CurrentMovementVelocity { get; private set; }
 
     // Animator parameter hashes for efficiency (avoids string comparisons every frame).
@@ -157,6 +160,7 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// Sets whether player movement is enabled or disabled.
     /// Used by other scripts (e.g., ConversationManager) to pause/resume player control.
+    /// When movement is disabled, it also explicitly sets animation parameters for an idle state.
     /// </summary>
     /// <param name="enabled">True to enable movement, false to disable.</param>
     public void SetMovementEnabled(bool enabled)
@@ -166,13 +170,22 @@ public class PlayerController : MonoBehaviour
         {
             // Stop movement immediately if disabled.
             _currentRawInput = Vector2.zero; // Clear input
-            _animator.SetBool(IsMovingHash, false); // Stop walking animation
             _rb.linearVelocity = Vector2.zero; // Ensure rigidbody stops (though MovePosition is used)
-            CurrentMovementVelocity = Vector2.zero; // NEW: Reset exposed velocity
+            CurrentMovementVelocity = Vector2.zero; // Reset exposed velocity
 
-            // Also reset direction parameters to 0 when movement is disabled
+            // Explicitly set animator parameters for an idle state.
+            _animator.SetBool(IsMovingHash, false);
             _animator.SetFloat(HorizontalDirectionHash, 0f);
             _animator.SetFloat(VerticalDirectionHash, 0f);
+
+            // If movement is disabled, it implies we might be in a forced idle state (like at firepit).
+            _isAtFirepitSpot = true; // Set this flag to prevent FixedUpdate from overriding
+            Debug.Log($"PlayerController: Movement disabled. _isAtFirepitSpot set to TRUE. Animator parameters forced to idle.");
+        }
+        else
+        {
+            _isAtFirepitSpot = false; // Player is free to move, allow FixedUpdate to control animations
+            Debug.Log($"PlayerController: Movement enabled. _isAtFirepitSpot set to FALSE.");
         }
     }
 
@@ -188,17 +201,22 @@ public class PlayerController : MonoBehaviour
             _variableJoystick.gameObject.SetActive(_useJoystickInput);
         }
 
-        // If movement is disabled, prevent any input processing for movement.
-        if (!_isMovementEnabled)
+        // If at firepit spot, or movement is generally disabled, prevent any input processing for movement
+        // and ensure the player is stopped and idle. Animation is controlled externally via SetFirepitAnimationState.
+        if (!_isMovementEnabled || _isAtFirepitSpot)
         {
             _currentRawInput = Vector2.zero; // Ensure no lingering input
-            _animator.SetBool(IsMovingHash, false); // Ensure idle animation
             _rb.linearVelocity = Vector2.zero; // Ensure player is fully stopped
-            CurrentMovementVelocity = Vector2.zero; // NEW: Reset exposed velocity
-            // Ensure animator direction parameters are zero when stopped
+            CurrentMovementVelocity = Vector2.zero; // Reset exposed velocity
+
+            // Explicitly ensure animator parameters are idle if this condition is met.
+            // This acts as a safeguard against any external parameter changes when player should be idle.
+            _animator.SetBool(IsMovingHash, false);
             _animator.SetFloat(HorizontalDirectionHash, 0f);
             _animator.SetFloat(VerticalDirectionHash, 0f);
-            return;
+
+            // Debug.Log($"PlayerController: FixedUpdate bypassed. _isMovementEnabled: {_isMovementEnabled}, _isAtFirepitSpot: {_isAtFirepitSpot}. Animator IsMoving: {_animator.GetBool(IsMovingHash)}, HDir: {_animator.GetFloat(HorizontalDirectionHash)}, VDir: {_animator.GetFloat(VerticalDirectionHash)}");
+            return; // Exit FixedUpdate early, animation is controlled externally
         }
 
         // --- Input Gathering ---
@@ -247,7 +265,7 @@ public class PlayerController : MonoBehaviour
         {
             _rb.linearVelocity = Vector2.zero; // Ensure player stops if no input
             CurrentMovementVelocity = Vector2.zero; // NEW: Reset exposed velocity
-            // Ensure animator direction parameters are zero when stopped
+            // When stopped due to lack of input, set direction parameters to 0.
             _animator.SetFloat(HorizontalDirectionHash, 0f);
             _animator.SetFloat(VerticalDirectionHash, 0f);
             return;
@@ -277,77 +295,193 @@ public class PlayerController : MonoBehaviour
     /// <param name="rawInput">The raw input vector (from keyboard/gamepad or joystick) before isometric conversion.</param>
     private void UpdateSpriteDirection(Vector2 rawInput)
     {
-        // Determine horizontal flip based on the X component of the raw input.
-        if (rawInput.x < -_horizontalInputDeadZone)
+        // Use a very small epsilon for comparisons to ensure any non-zero input triggers a flip.
+        float epsilon = 0.0001f;
+
+        // Determine horizontal flip based on input, prioritizing horizontal movement, then vertical.
+        // This implements: "down or left, the player sprite should flip to point left"
+        // and "up or right, the player should flip the the right."
+        if (rawInput.x < -epsilon) // Moving left
         {
             _spriteRenderer.flipX = true; // Flip to face left
+        }
+        else if (rawInput.x > epsilon) // Moving right
+        {
+            _spriteRenderer.flipX = false; // Face right
+        }
+        // If horizontal input is effectively zero, then use vertical input to determine horizontal flip.
+        else if (Mathf.Abs(rawInput.y) > epsilon)
+        {
+            if (rawInput.y < 0) // Moving down
+            {
+                _spriteRenderer.flipX = true; // User wants to flip left when moving down
+            }
+            else // rawInput.y > 0 (moving up)
+            {
+                _spriteRenderer.flipX = false; // User wants to flip right when moving up
+            }
+        }
+        // If both x and y inputs are effectively zero, spriteRenderer.flipX retains its last state.
+
+
+        // Determine IsFacingBackward based on X or Y input, and retain state when idle.
+        // IsBackwards should be checked when player moves up (positive Y) OR left (negative X).
+        // If player moves down (negative Y) OR right (positive X), IsBackwards should be unchecked.
+        // Use a very small epsilon for comparisons to ensure any non-zero input triggers the boolean change.
+        if (rawInput.y > epsilon || rawInput.x < -epsilon) // Moving "up" or "left"
+        {
+            _animator.SetBool(IsFacingBackwardHash, true); // Should face/animate backward
+        }
+        else if (rawInput.y < -epsilon || rawInput.x > epsilon) // Moving "down" or "right"
+        {
+            _animator.SetBool(IsFacingBackwardHash, false); // Should face/animate forward
+        }
+        // If input is effectively zero for both axes, IsFacingBackwardHash retains its last value.
+
+
+        // Set HorizontalDirection float only if movement is significant (keep dead zones here)
+        if (rawInput.x < -_horizontalInputDeadZone)
+        {
             _animator.SetFloat(HorizontalDirectionHash, -1f); // Set animator parameter for left
         }
         else if (rawInput.x > _horizontalInputDeadZone)
         {
-            _spriteRenderer.flipX = false; // Face right
             _animator.SetFloat(HorizontalDirectionHash, 1f); // Set animator parameter for right
         }
         else
         {
-            _animator.SetFloat(HorizontalDirectionHash, 0f); // Input within dead zone, treat as no horizontal movement
+            // If horizontal input is within dead zone, set to 0. This allows the Animator to snap to neutral horizontal.
+            _animator.SetFloat(HorizontalDirectionHash, 0f);
         }
 
-        // Determine animation state based on the Y component of the raw input.
-        // As per the request: "Walking Forward is moving down in my map, and Backward is moving up."
-        // This means a negative Y input (moving down) corresponds to 'forward' animation,
-        // and a positive Y input (moving up) corresponds to 'backward' animation.
+        // Set VerticalDirection float only if movement is significant (keep dead zones here)
+        // Consistent with "Walking Forward is moving down in my map, and Backward is moving up."
         if (rawInput.y > _verticalInputDeadZone) // Moving UP the screen
         {
-            _animator.SetBool(IsFacingBackwardHash, true); // Player is moving "up" -> should face/animate backward
             _animator.SetFloat(VerticalDirectionHash, 1f); // Positive Y for "backward" direction
         }
         else if (rawInput.y < -_verticalInputDeadZone) // Moving DOWN the screen
         {
-            _animator.SetBool(IsFacingBackwardHash, false); // Player is moving "down" -> should face/animate forward
             _animator.SetFloat(VerticalDirectionHash, -1f); // Negative Y for "forward" direction
         }
         else
         {
-            _animator.SetFloat(VerticalDirectionHash, 0f); // Input within dead zone, treat as no vertical movement
+            // If vertical input is within dead zone, set to 0. This allows the Animator to snap to neutral vertical.
+            _animator.SetFloat(VerticalDirectionHash, 0f);
         }
     }
 
     /// <summary>
+    /// Sets the player's animation parameters and sprite facing for a stationary state,
+    /// typically used when arriving at a specific point like the firepit.
+    /// This method explicitly sets all relevant animator parameters for an idle pose.
+    /// </summary>
+    /// <param name="isMoving">Should the 'IsMoving' parameter be set to true or false (usually false for idle).</param>
+    /// <param name="horizontalDir">The value for the 'HorizontalDirection' float parameter (usually 0 for idle).</param>
+    /// <param name="verticalDir">The value for the 'VerticalDirection' float parameter (usually 0 for idle).</param>
+    public void SetFirepitAnimationState(bool isMoving, float horizontalDir, float verticalDir)
+    {
+        _isAtFirepitSpot = true; // Player is now at the firepit spot, prevent FixedUpdate from overriding
+        _isMovementEnabled = false; // Ensure movement is disabled
+
+        _rb.linearVelocity = Vector2.zero; // Explicitly stop the player's rigidbody
+
+        _animator.SetBool(IsMovingHash, isMoving);
+        _animator.SetFloat(HorizontalDirectionHash, horizontalDir);
+        _animator.SetFloat(VerticalDirectionHash, verticalDir);
+
+        // Determine sprite flip and IsFacingBackward based on provided directions
+        float epsilon = 0.0001f;
+
+        // Sprite Flip (left/right)
+        if (horizontalDir < -epsilon) // Left
+        {
+            _spriteRenderer.flipX = true;
+        }
+        else if (horizontalDir > epsilon) // Right
+        {
+            _spriteRenderer.flipX = false;
+        }
+        else if (verticalDir < -epsilon) // Down
+        {
+            _spriteRenderer.flipX = true; // Face left
+        }
+        else if (verticalDir > epsilon) // Up
+        {
+            _spriteRenderer.flipX = false; // Face right
+        }
+
+        // IsFacingBackward (up/down)
+        if (verticalDir > epsilon) // Up (backward)
+        {
+            _animator.SetBool(IsFacingBackwardHash, true);
+        }
+        else if (verticalDir < -epsilon) // Down (forward)
+        {
+            _animator.SetBool(IsFacingBackwardHash, false);
+        }
+        else if (horizontalDir < -epsilon) // Left
+        {
+            _animator.SetBool(IsFacingBackwardHash, true); // Face backward
+        }
+        else if (horizontalDir > epsilon) // Right
+        {
+            _animator.SetBool(IsFacingBackwardHash, false); // Face forward
+        }
+
+        Debug.Log($"PlayerController: Firepit animation state set. IsMoving: {isMoving}, HDir: {horizontalDir}, VDir: {verticalDir}. IsFacingBackward: {_animator.GetBool(IsFacingBackwardHash)}, Sprite flipX: {_spriteRenderer.flipX}");
+    }
+
+    /// <summary>
     /// Sets the player's sprite facing direction based on a given direction vector.
-    /// This method is called by external scripts (e.g., FirepitTrigger) to force a specific facing.
+    /// This method is primarily for general-purpose visual facing, not for setting full animation states.
+    /// It does NOT affect IsMoving or the Horizontal/VerticalDirection floats.
     /// </summary>
     /// <param name="direction">The direction vector the player should face.</param>
     public void SetFacingDirection(Vector2 direction)
     {
-        // Use a small threshold to determine if there's significant direction to update facing
-        float threshold = 0.01f;
+        // Use a very small epsilon to check if the direction is effectively zero.
+        float epsilon = 0.0001f;
+
+        // Always update flipX and IsFacingBackward when this method is called,
+        // as it's intended for explicit facing control in idle states.
 
         // Determine horizontal flip based on the X component of the direction.
-        if (direction.x < -threshold)
+        // If X is not zero, that dictates the horizontal flip.
+        if (direction.x < -epsilon) // Direction is left
         {
             _spriteRenderer.flipX = true; // Flip to face left
         }
-        else if (direction.x > threshold)
+        else if (direction.x > epsilon) // Direction is right
         {
             _spriteRenderer.flipX = false; // Face right
         }
-        // If direction.x is within threshold, maintain last horizontal flip.
+        // If horizontal direction is effectively zero, use vertical direction for flip.
+        else if (direction.y < -epsilon) // Moving down
+        {
+            _spriteRenderer.flipX = true; // Flip left (as per "down or left, flip left")
+        }
+        else if (direction.y > epsilon) // Moving up
+        {
+            _spriteRenderer.flipX = false; // Flip right (as per "up or right, flip right")
+        }
+        // If both x and y directions are effectively zero, spriteRenderer.flipX retains its last state.
 
-        // Determine animation state based on the Y component of the direction.
-        // This will influence IsFacingBackwardHash.
-        // Consistent with "Walking Forward is moving down, Backward is moving up."
-        if (direction.y > threshold) // Direction is upwards (positive Y)
+
+        // Determine IsFacingBackward based on X or Y direction.
+        // IsBackwards should be true when player moves up (positive Y) OR left (negative X).
+        // If player moves down (negative Y) OR right (positive X), IsBackwards should be unchecked.
+        if (direction.y > epsilon || direction.x < -epsilon) // Direction is upwards (positive Y) or left (negative X)
         {
             _animator.SetBool(IsFacingBackwardHash, true); // Should face/animate backward
         }
-        else if (direction.y < -threshold) // Direction is downwards (negative Y)
+        else if (direction.y < -epsilon || direction.x > epsilon) // Direction is downwards (negative Y) or right (positive X)
         {
             _animator.SetBool(IsFacingBackwardHash, false); // Should face/animate forward
         }
-        // If direction.y is within threshold, maintain last vertical animation state.
+        // If direction is effectively zero, IsFacingBackwardHash retains its last value.
 
-        Debug.Log($"PlayerController: Forced facing direction to {direction}");
+        Debug.Log($"PlayerController: SetFacingDirection called. Direction: {direction}. IsFacingBackward: {_animator.GetBool(IsFacingBackwardHash)}, Sprite flipX: {_spriteRenderer.flipX}");
     }
 
     /// <summary>

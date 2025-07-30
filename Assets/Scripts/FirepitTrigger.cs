@@ -2,8 +2,9 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq; // For LINQ to find all NPCFollowers
 using TMPro; // Required for TextMeshProUGUI
-using UnityEngine.UI; // Required for CanvasGroup
-using Unity.Cinemachine;
+using UnityEngine.UI; // Required for CanvasGroup and Button
+using Unity.Cinemachine; // Required for CinemachineCamera
+using System.Collections; // Required for Coroutines
 
 #if UNITY_EDITOR // Only include UnityEditor namespace when in the editor
 using UnityEditor;
@@ -11,17 +12,18 @@ using UnityEditor;
 
 /// <summary>
 /// Triggers an end-game sequence where all friendly NPCs and the player
-/// move to designated spots around a firepit.
+/// move to designated spots around a firepit, or allows the player to continue exploring.
 /// Attach this script to a 2D Collider (set to Is Trigger) in your player's house.
 /// </summary>
 [RequireComponent(typeof(Collider2D))]
 public class FirepitTrigger : MonoBehaviour
 {
     [Header("Firepit Destinations")]
-    [Tooltip("The Transform where the player should move to.")]
+    [Tooltip("The Transform where the player should move to. This Transform should also have a FirepitSpotAnimationConfig component.")]
     [SerializeField] private Transform _playerFirepitSpot;
     [Tooltip("A list of Transforms representing the designated spots for each friendly NPC. " +
-             "Ensure the order corresponds to the order you want NPCs to occupy them, or map them by NPC name.")]
+             "Ensure the order corresponds to the order you want NPCs to occupy them, or map them by NPC name. " +
+             "Each Transform should also have a FirepitSpotAnimationConfig component.")]
     [SerializeField] private List<Transform> _npcFirepitSpots = new List<Transform>();
     [Tooltip("The central Transform representing the firepit itself. Player and NPCs will face towards this point.")]
     [SerializeField] private Transform _firepitCenter; // Reference to the firepit's center
@@ -55,16 +57,34 @@ public class FirepitTrigger : MonoBehaviour
              "If left null, the NotificationManager's default canvas group will be used.")]
     [SerializeField] private CanvasGroup _customEndGameCanvasGroup;
 
-    [Header("Camera Control")] // NEW: Header for camera control
+    [Header("Camera Control")] // Header for camera control
     [Tooltip("The Cinemachine Virtual Camera that should follow the firepit.")]
     [SerializeField] private CinemachineCamera _virtualCamera;
 
+    [Header("Prompt UI Settings")] // NEW: Header for the "Proceed Home" prompt UI
+    [Tooltip("The root GameObject of the prompt UI panel (should have a CanvasGroup).")]
+    [SerializeField] private GameObject _promptPanel;
+    [Tooltip("The TextMeshProUGUI component for the prompt question.")]
+    [SerializeField] private TextMeshProUGUI _promptText;
+    [Tooltip("The Button for choosing to proceed home.")]
+    [SerializeField] private Button _proceedHomeButton;
+    [Tooltip("The Button for choosing to continue exploring.")]
+    [SerializeField] private Button _continueExploringButton;
 
-    private bool _eventTriggered = false; // To prevent multiple triggers
+    [Header("Blocking Collider")] // NEW: Header for the optional blocking collider
+    [Tooltip("Optional: A Collider2D that blocks the player's path, which will be disabled if the player chooses to proceed home.")]
+    [SerializeField] private Collider2D _blockingCollider;
+
+    private bool _eventTriggered = false; // To prevent multiple triggers of the initial prompt
+
+    // NEW: Fields to manage NPC arrival
+    private List<NPCFollower> _npcsMovingToFirepit = new List<NPCFollower>();
+    private int _expectedNpcsToArrive;
+    private int _currentNpcsArrived;
 
     /// <summary>
     /// Called when the script instance is being loaded.
-    /// Ensures the collider is set to trigger.
+    /// Ensures the collider is set to trigger and sets up prompt button listeners.
     /// </summary>
     private void Awake()
     {
@@ -73,6 +93,39 @@ public class FirepitTrigger : MonoBehaviour
         {
             Debug.LogWarning($"FirepitTrigger on {gameObject.name}: Collider2D is not set to 'Is Trigger'. Setting it now.");
             col.isTrigger = true;
+        }
+
+        // Set up listeners for the prompt buttons
+        if (_proceedHomeButton != null)
+        {
+            _proceedHomeButton.onClick.AddListener(OnProceedHomeButtonClicked);
+        }
+        else
+        {
+            Debug.LogWarning("FirepitTrigger: Proceed Home Button is not assigned!");
+        }
+
+        if (_continueExploringButton != null)
+        {
+            _continueExploringButton.onClick.AddListener(OnContinueExploringButtonClicked);
+        }
+        else
+        {
+            Debug.LogWarning("FirepitTrigger: Continue Exploring Button is not assigned!");
+        }
+
+        // Hide the prompt UI initially
+        if (_promptPanel != null)
+        {
+            _promptPanel.SetActive(false);
+            CanvasGroup promptCanvasGroup = _promptPanel.GetComponent<CanvasGroup>();
+            if (promptCanvasGroup == null)
+            {
+                promptCanvasGroup = _promptPanel.AddComponent<CanvasGroup>();
+            }
+            promptCanvasGroup.alpha = 0f;
+            promptCanvasGroup.interactable = false;
+            promptCanvasGroup.blocksRaycasts = false;
         }
     }
 
@@ -86,111 +139,314 @@ public class FirepitTrigger : MonoBehaviour
         if (other.CompareTag("Player") && !_eventTriggered)
         {
             _eventTriggered = true;
-            Debug.Log("Player entered Firepit Trigger. Initiating gathering sequence!");
+            Debug.Log("Player entered Firepit Trigger. Displaying home/explore prompt.");
 
-            // 1. Move the Player to their spot and make them face the firepit
-            if (_playerFirepitSpot != null && PlayerController.Instance != null && _firepitCenter != null)
+            // Disable player movement while the prompt is active
+            if (PlayerController.Instance != null)
             {
-                // Stop player control
                 PlayerController.Instance.SetMovementEnabled(false);
-                // For simplicity and immediate effect, directly set player position.
-                PlayerController.Instance.transform.position = _playerFirepitSpot.position;
-                Debug.Log("Player moved to firepit spot.");
-
-                // Make player face the firepit
-                Vector2 playerDirectionToFire = _firepitCenter.position - _playerFirepitSpot.position;
-                PlayerController.Instance.SetFacingDirection(playerDirectionToFire); // Assumes PlayerController has this method
-                Debug.Log($"Player facing direction: {playerDirectionToFire}");
-            }
-            else
-            {
-                Debug.LogWarning("FirepitTrigger: Player Firepit Spot, PlayerController.Instance, or Firepit Center is null. Player will not move or face.");
             }
 
-            // 2. Command all friendly NPCs to their spots and make them face the firepit
-            if (QuestManager.Instance != null && _firepitCenter != null)
-            {
-                IReadOnlyList<NPCFollower> activeFollower = QuestManager.Instance.GetActiveFollowers();
-
-                // Distribute NPCs to spots
-                for (int i = 0; i < activeFollower.Count; i++)
-                {
-                    if (i < _npcFirepitSpots.Count && _npcFirepitSpots[i] != null)
-                    {
-                        activeFollower[i].GoToDestination(_npcFirepitSpots[i].position);
-                        Debug.Log($"NPC {activeFollower[i].name} moving to spot {i}.");
-
-                        // Make NPC face the firepit
-                        Vector2 npcDirectionToFire = _firepitCenter.position - _npcFirepitSpots[i].position;
-                        activeFollower[i].SetFacingDirection(npcDirectionToFire); // Assumes NPCFollower has this method
-                        Debug.Log($"NPC {activeFollower[i].name} facing direction: {npcDirectionToFire}");
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"FirepitTrigger: Not enough NPC Firepit Spots for all active followers, or spot {i} is null. NPC {activeFollower[i].name} will stop following.");
-                        // If no designated spot, just stop them from following
-                        activeFollower[i].StopFollowing();
-                    }
-                }
-
-                // NEW: Change Cinemachine camera target to the firepit
-                if (_virtualCamera != null)
-                {
-                    _virtualCamera.Follow = _firepitCenter;
-                    Debug.Log("FirepitTrigger: Cinemachine camera now following Firepit Center.");
-                }
-                else
-                {
-                    Debug.LogWarning("FirepitTrigger: Virtual Camera is not assigned! Cannot change camera target.");
-                }
-
-
-                // Display end-game notification based on friends count
-                if (NotificationManager.Instance != null)
-                {
-                    int friendsFound = QuestManager.Instance.GetFriends().Count;
-                    int totalPossibleFriends = QuestManager.Instance.GetTotalPossibleFriends();
-                    string endGameMessage;
-
-                    if (friendsFound == 0)
-                    {
-                        endGameMessage = _aloneMessage;
-                    }
-                    else if (friendsFound > 0 && friendsFound < totalPossibleFriends)
-                    {
-                        // Use string.Format to insert the number of friends into the message
-                        endGameMessage = string.Format(_someFriendsMessage, friendsFound);
-                    }
-                    else if (totalPossibleFriends > 0 && friendsFound >= totalPossibleFriends) // Ensure totalPossibleFriends is not zero to avoid misleading "all friends"
-                    {
-                        endGameMessage = _allFriendsMessage;
-                    }
-                    else // Fallback for unexpected cases or if totalPossibleFriends is 0
-                    {
-                        endGameMessage = _fallbackMessage;
-                    }
-
-                    // Pass custom UI elements if they are assigned, otherwise NotificationManager will use its defaults.
-                    NotificationManager.Instance.ShowPermanentNotification(endGameMessage, _customEndGameTextPanel, _customEndGameCanvasGroup);
-                }
-                else
-                {
-                    Debug.LogError("FirepitTrigger: NotificationManager.Instance not found! Cannot display end-game message.");
-                }
-            }
-            else
-            {
-                Debug.LogWarning("FirepitTrigger: QuestManager.Instance or Firepit Center is null. Cannot command NPCs to firepit spots or display end-game message.");
-                // As a fallback, stop all NPCFollowers if QuestManager isn't available
-                foreach (NPCFollower follower in FindObjectsOfType<NPCFollower>())
-                {
-                    follower.StopFollowing();
-                }
-            }
-
-            // Optionally, disable this trigger after it has been used
-            gameObject.SetActive(false);
+            // Show the prompt UI
+            ShowPromptUI("Do you want to proceed home or continue exploring?");
         }
+    }
+
+    /// <summary>
+    /// Displays the prompt UI with a given question.
+    /// </summary>
+    /// <param name="question">The question to display in the prompt.</param>
+    private void ShowPromptUI(string question)
+    {
+        if (_promptPanel != null && _promptText != null)
+        {
+            _promptText.text = question;
+            _promptPanel.SetActive(true);
+            CanvasGroup promptCanvasGroup = _promptPanel.GetComponent<CanvasGroup>();
+            if (promptCanvasGroup != null)
+            {
+                promptCanvasGroup.alpha = 1f;
+                promptCanvasGroup.interactable = true;
+                promptCanvasGroup.blocksRaycasts = true;
+            }
+        }
+        else
+        {
+            Debug.LogError("FirepitTrigger: Prompt UI elements are not assigned! Cannot show prompt.");
+            // As a fallback, proceed home if UI is broken
+            StartCoroutine(_ExecuteFirepitSequence()); // Start as coroutine
+        }
+    }
+
+    /// <summary>
+    /// Hides the prompt UI.
+    /// </summary>
+    private void HidePromptUI()
+    {
+        if (_promptPanel != null)
+        {
+            CanvasGroup promptCanvasGroup = _promptPanel.GetComponent<CanvasGroup>();
+            if (promptCanvasGroup != null)
+            {
+                promptCanvasGroup.alpha = 0f;
+                promptCanvasGroup.interactable = false;
+                promptCanvasGroup.blocksRaycasts = false;
+            }
+            _promptPanel.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// Callback for the "Proceed Home" button.
+    /// Initiates the firepit gathering sequence and disables the blocking collider.
+    /// </summary>
+    private void OnProceedHomeButtonClicked()
+    {
+        Debug.Log("FirepitTrigger: 'Proceed Home' button clicked.");
+        HidePromptUI();
+        Debug.Log("Player chose to proceed home.");
+
+        // Disable the blocking collider if assigned
+        if (_blockingCollider != null)
+        {
+            _blockingCollider.enabled = false;
+            Debug.Log($"FirepitTrigger: Blocking collider '{_blockingCollider.name}' disabled.");
+        }
+        else
+        {
+            Debug.LogWarning("FirepitTrigger: Blocking collider is not assigned. No collider to disable.");
+        }
+
+        StartCoroutine(_ExecuteFirepitSequence()); // Start the sequence as a coroutine
+    }
+
+    /// <summary>
+    /// Callback for the "Continue Exploring" button.
+    /// Allows the player to continue exploring and re-enables movement.
+    /// </summary>
+    private void OnContinueExploringButtonClicked()
+    {
+        Debug.Log("FirepitTrigger: 'Continue Exploring' button clicked.");
+        HidePromptUI();
+        Debug.Log("Player chose to continue exploring.");
+
+        // Re-enable player movement
+        if (PlayerController.Instance != null)
+        {
+            PlayerController.Instance.SetMovementEnabled(true);
+        }
+
+        // Reset _eventTriggered so the player can re-enter the trigger and be prompted again
+        _eventTriggered = false;
+
+        // The blocking collider remains enabled by default.
+    }
+
+    /// <summary>
+    /// Executes the main firepit gathering sequence (player/NPC movement, camera, messages).
+    /// This is now a coroutine to allow waiting for NPCs to arrive.
+    /// </summary>
+    private IEnumerator _ExecuteFirepitSequence()
+    {
+        // 1. Move the Player to their spot and apply animation config
+        if (_playerFirepitSpot != null && PlayerController.Instance != null)
+        {
+            FirepitSpotAnimationConfig playerSpotConfig = _playerFirepitSpot.GetComponent<FirepitSpotAnimationConfig>();
+
+            // Move player to their spot
+            PlayerController.Instance.transform.position = _playerFirepitSpot.position;
+            Debug.Log("Player moved to firepit spot.");
+
+            if (playerSpotConfig != null)
+            {
+                // Set player movement state (IsMoving)
+                PlayerController.Instance.SetMovementEnabled(false); // Disable player input and movement
+                PlayerController.Instance.SetFirepitAnimationState(
+                    !playerSpotConfig.IsMovingAtSpot, // IsMoving should be false for idle
+                    playerSpotConfig.NpcHorizontalDirectionAtSpot,
+                    playerSpotConfig.NpcVerticalDirectionAtSpot
+                );
+
+                Vector2 playerFacingDirection;
+                if (playerSpotConfig.PlayerIsFacingBackwardAtSpot)
+                {
+                    playerFacingDirection = new Vector2(-1, 1).normalized;
+                }
+                else
+                {
+                    playerFacingDirection = new Vector2(1, -1).normalized;
+                }
+                PlayerController.Instance.SetFacingDirection(playerFacingDirection);
+                Debug.Log($"Player facing direction: {playerFacingDirection} (from config: IsFacingBackward={playerSpotConfig.PlayerIsFacingBackwardAtSpot})");
+            }
+            else
+            {
+                Debug.LogWarning($"FirepitTrigger: Player Firepit Spot '{_playerFirepitSpot.name}' is missing FirepitSpotAnimationConfig. Player animations may not be set correctly.");
+                PlayerController.Instance.SetMovementEnabled(false);
+                if (_firepitCenter != null)
+                {
+                    Vector2 playerDirectionToFire = _firepitCenter.position - _playerFirepitSpot.position;
+                    PlayerController.Instance.SetFacingDirection(playerDirectionToFire);
+                }
+            }
+        }
+        else
+        {
+            Debug.LogWarning("FirepitTrigger: Player Firepit Spot or PlayerController.Instance is null. Player will not move or face.");
+        }
+
+        // 2. Command all friendly NPCs to their spots and prepare for arrival tracking
+        if (QuestManager.Instance != null && _firepitCenter != null)
+        {
+            IReadOnlyList<NPCFollower> activeFollowers = QuestManager.Instance.GetActiveFollowers();
+            Debug.Log($"FirepitTrigger: Found {activeFollowers.Count} active followers to move to firepit spots.");
+
+            _npcsMovingToFirepit.Clear(); // Clear list from previous runs
+            _currentNpcsArrived = 0;
+            _expectedNpcsToArrive = activeFollowers.Count;
+
+            // Distribute NPCs to spots
+            for (int i = 0; i < activeFollowers.Count; i++)
+            {
+                if (i < _npcFirepitSpots.Count && _npcFirepitSpots[i] != null)
+                {
+                    NPCFollower currentNpc = activeFollowers[i];
+                    Transform npcSpotTransform = _npcFirepitSpots[i];
+                    FirepitSpotAnimationConfig npcSpotConfig = npcSpotTransform.GetComponent<FirepitSpotAnimationConfig>();
+
+                    Debug.Log($"FirepitTrigger: Commanding NPC {currentNpc.name} to destination {npcSpotTransform.position}.");
+                    currentNpc.GoToDestination(npcSpotTransform.position); // Move NPC to spot
+
+                    // Subscribe to the NPC's OnDestinationReached event
+                    // Using a local function or a lambda that captures variables for the listener
+                    // This listener will be removed when the FirepitTrigger GameObject is deactivated.
+                    currentNpc.OnDestinationReached.AddListener(() => OnNpcArrivedAtFirepitSpot(currentNpc, npcSpotConfig));
+                    _npcsMovingToFirepit.Add(currentNpc); // Track this NPC as moving
+                }
+                else
+                {
+                    Debug.LogWarning($"FirepitTrigger: Not enough NPC Firepit Spots for all active followers, or spot {i} is null. NPC {activeFollowers[i].name} will stop following.");
+                    activeFollowers[i].StopFollowing();
+                }
+            }
+
+            // Wait until all NPCs have arrived
+            while (_currentNpcsArrived < _expectedNpcsToArrive)
+            {
+                yield return null; // Wait for the next frame
+            }
+
+            Debug.Log("FirepitTrigger: All NPCs have arrived at their firepit spots.");
+
+            // Now that all NPCs have arrived, finalize the sequence
+            FinalizeFirepitSequence();
+        }
+        else
+        {
+            Debug.LogWarning("FirepitTrigger: QuestManager.Instance or Firepit Center is null. Cannot command NPCs to firepit spots or display end-game message.");
+            // As a fallback, stop all NPCFollowers if QuestManager isn't available
+            foreach (NPCFollower follower in FindObjectsOfType<NPCFollower>())
+            {
+                follower.StopFollowing();
+            }
+            // If no NPCs, just finalize the sequence immediately
+            FinalizeFirepitSequence();
+        }
+    }
+
+    /// <summary>
+    /// Callback method for when an NPCFollower reaches its destination.
+    /// </summary>
+    /// <param name="npc">The NPCFollower that arrived.</param>
+    /// <param name="spotConfig">The FirepitSpotAnimationConfig for this NPC's spot.</param>
+    private void OnNpcArrivedAtFirepitSpot(NPCFollower npc, FirepitSpotAnimationConfig spotConfig)
+    {
+        _currentNpcsArrived++;
+        Debug.Log($"NPC {npc.name} arrived at firepit spot. Total arrived: {_currentNpcsArrived}/{_expectedNpcsToArrive}");
+
+        if (spotConfig != null)
+        {
+            // Apply the final animation state for the firepit spot
+            npc.SetFirepitAnimationState(
+                !spotConfig.IsMovingAtSpot, // IsMoving should be false for idle
+                spotConfig.NpcHorizontalDirectionAtSpot,
+                spotConfig.NpcVerticalDirectionAtSpot
+            );
+            // Tell the NPCFollower that it is now at the firepit spot, so FixedUpdate stops overriding animations
+            npc.SetIsAtFirepitSpot(true);
+            Debug.Log($"NPC {npc.name} animations set from config and marked as at firepit spot.");
+        }
+        else
+        {
+            Debug.LogWarning($"FirepitTrigger: NPC Firepit Spot for '{npc.name}' is missing FirepitSpotAnimationConfig. NPC animations may not be set correctly after arrival.");
+            // Fallback: Ensure NPC is stopped and try to face firepit center
+            npc.StopFollowing(); // This sets IsMoving to false
+            if (_firepitCenter != null)
+            {
+                // Corrected the ambiguous operator by casting both operands to Vector2
+                Vector2 npcDirectionToFire = (Vector2)_firepitCenter.position - (Vector2)npc.transform.position;
+                npc.SetFacingDirection(npcDirectionToFire);
+            }
+            npc.SetIsAtFirepitSpot(true); // Still mark as at spot to stop movement
+        }
+
+        // Remove the listener to prevent multiple calls for the same NPC
+        // Note: For lambdas, this requires careful handling. For this scenario where
+        // the FirepitTrigger itself will be set inactive, the listeners will be cleaned up.
+        // For more complex systems, consider storing the UnityAction and removing it explicitly.
+        // For now, we'll rely on the parent GameObject's deactivation.
+    }
+
+
+    /// <summary>
+    /// Finalizes the firepit sequence after all NPCs have arrived.
+    /// </summary>
+    private void FinalizeFirepitSequence()
+    {
+        // Change Cinemachine camera target to the firepit
+        if (_virtualCamera != null)
+        {
+            _virtualCamera.Follow = _firepitCenter;
+            Debug.Log("FirepitTrigger: Cinemachine camera now following Firepit Center.");
+        }
+        else
+        {
+            Debug.LogWarning("FirepitTrigger: Virtual Camera is not assigned! Cannot change camera target.");
+        }
+
+        // Display end-game notification based on friends count
+        if (NotificationManager.Instance != null)
+        {
+            int friendsFound = QuestManager.Instance.GetFriends().Count;
+            int totalPossibleFriends = QuestManager.Instance.GetTotalPossibleFriends();
+            string endGameMessage;
+
+            if (friendsFound == 0)
+            {
+                endGameMessage = _aloneMessage;
+            }
+            else if (friendsFound > 0 && totalPossibleFriends > 0 && friendsFound < totalPossibleFriends)
+            {
+                endGameMessage = string.Format(_someFriendsMessage, friendsFound);
+            }
+            else if (totalPossibleFriends > 0 && friendsFound >= totalPossibleFriends)
+            {
+                endGameMessage = _allFriendsMessage;
+            }
+            else
+            {
+                endGameMessage = _fallbackMessage;
+            }
+
+            NotificationManager.Instance.ShowPermanentNotification(endGameMessage, _customEndGameTextPanel, _customEndGameCanvasGroup);
+        }
+        else
+        {
+            Debug.LogError("FirepitTrigger: NotificationManager.Instance not found! Cannot display end-game message.");
+        }
+
+        // Optionally, disable this trigger after it has been used for the home sequence
+        gameObject.SetActive(false);
     }
 
     // Optional: Draw gizmos in the editor to visualize the firepit spots
@@ -201,7 +457,7 @@ public class FirepitTrigger : MonoBehaviour
         {
             Gizmos.color = Color.blue;
             Gizmos.DrawSphere(_playerFirepitSpot.position, 0.3f);
-            Handles.Label(_playerFirepitSpot.position + Vector3.up * 0.5f, "Player Spot");
+            UnityEditor.Handles.Label(_playerFirepitSpot.position + Vector3.up * 0.5f, "Player Spot");
         }
 
         for (int i = 0; i < _npcFirepitSpots.Count; i++)
@@ -210,7 +466,7 @@ public class FirepitTrigger : MonoBehaviour
             {
                 Gizmos.color = Color.red;
                 Gizmos.DrawSphere(_npcFirepitSpots[i].position, 0.3f);
-                Handles.Label(_npcFirepitSpots[i].position + Vector3.up * 0.5f, $"NPC Spot {i}");
+                UnityEditor.Handles.Label(_npcFirepitSpots[i].position + Vector3.up * 0.5f, $"NPC Spot {i}");
             }
         }
 
@@ -218,7 +474,7 @@ public class FirepitTrigger : MonoBehaviour
         {
             Gizmos.color = Color.yellow;
             Gizmos.DrawSphere(_firepitCenter.position, 0.5f);
-            Handles.Label(_firepitCenter.position + Vector3.up * 0.7f, "Firepit Center");
+            UnityEditor.Handles.Label(_firepitCenter.position + Vector3.up * 0.7f, "Firepit Center");
         }
 
         // Draw the trigger collider itself
@@ -236,6 +492,23 @@ public class FirepitTrigger : MonoBehaviour
             {
                 Gizmos.DrawSphere(transform.position + (Vector3)circle.offset, circle.radius * transform.localScale.x);
             }
+        }
+
+        // Draw blocking collider if assigned
+        if (_blockingCollider != null && _blockingCollider.enabled)
+        {
+            Gizmos.color = new Color(0, 0, 1, 0.5f); // Blue, semi-transparent
+            if (_blockingCollider is BoxCollider2D box)
+            {
+                Gizmos.matrix = Matrix4x4.TRS(_blockingCollider.transform.position, _blockingCollider.transform.rotation, _blockingCollider.transform.localScale);
+                Gizmos.DrawCube(box.offset, box.size);
+                Gizmos.matrix = Matrix4x4.identity;
+            }
+            else if (_blockingCollider is CircleCollider2D circle)
+            {
+                Gizmos.DrawSphere(_blockingCollider.transform.position + (Vector3)circle.offset, circle.radius * _blockingCollider.transform.localScale.x);
+            }
+            UnityEditor.Handles.Label(_blockingCollider.transform.position + Vector3.up * 0.5f, "Blocking Collider");
         }
 #endif
     }
