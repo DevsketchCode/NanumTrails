@@ -37,8 +37,8 @@ public class PlayerController : MonoBehaviour
     private float _tileUnitSize = 1.0f;
 
     [Tooltip("An optional angle (in degrees) by which to bias the isometric movement direction each frame. " +
-             "Positive values rotate the movement clockwise, negative values rotate counter-clockwise. " +
-             "Use this for fine-tuning after the base 1:2 isometric transformation.")]
+              "Positive values rotate the movement clockwise, negative values rotate counter-clockwise. " +
+              "Use this for fine-tuning after the base 1:2 isometric transformation.")]
     [SerializeField]
     private float _isometricAngleBias = 0.0f; // This field remains for fine-tuning
 
@@ -47,7 +47,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField]
     private float _horizontalInputDeadZone = 0.01f; // New: Dead zone for horizontal input
 
-    [Tooltip("The minimum absolute value of vertical input required to register vertical movement for animations. Values below this will be treated as zero.")]
+    [Tooltip("The minimum absolute value of vertical input required to register vertical input for animations. Values below this will be treated as zero.")]
     [SerializeField]
     private float _verticalInputDeadZone = 0.01f; // New: Dead zone for vertical velocity
 
@@ -85,8 +85,6 @@ public class PlayerController : MonoBehaviour
     // Animator parameter hashes for efficiency (avoids string comparisons every frame).
     private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
     private static readonly int IsFacingBackwardHash = Animator.StringToHash("IsFacingBackward");
-    private static readonly int HorizontalDirectionHash = Animator.StringToHash("HorizontalDirection"); // New hash for horizontal
-    private static readonly int VerticalDirectionHash = Animator.StringToHash("VerticalDirection"); // New hash for vertical
 
     /// <summary>
     /// Called when the script instance is being loaded.
@@ -175,8 +173,6 @@ public class PlayerController : MonoBehaviour
 
             // Explicitly set animator parameters for an idle state.
             _animator.SetBool(IsMovingHash, false);
-            _animator.SetFloat(HorizontalDirectionHash, 0f);
-            _animator.SetFloat(VerticalDirectionHash, 0f);
 
             // If movement is disabled, it implies we might be in a forced idle state (like at firepit).
             _isAtFirepitSpot = true; // Set this flag to prevent FixedUpdate from overriding
@@ -212,10 +208,7 @@ public class PlayerController : MonoBehaviour
             // Explicitly ensure animator parameters are idle if this condition is met.
             // This acts as a safeguard against any external parameter changes when player should be idle.
             _animator.SetBool(IsMovingHash, false);
-            _animator.SetFloat(HorizontalDirectionHash, 0f);
-            _animator.SetFloat(VerticalDirectionHash, 0f);
 
-            // Debug.Log($"PlayerController: FixedUpdate bypassed. _isMovementEnabled: {_isMovementEnabled}, _isAtFirepitSpot: {_isAtFirepitSpot}. Animator IsMoving: {_animator.GetBool(IsMovingHash)}, HDir: {_animator.GetFloat(HorizontalDirectionHash)}, VDir: {_animator.GetFloat(VerticalDirectionHash)}");
             return; // Exit FixedUpdate early, animation is controlled externally
         }
 
@@ -233,12 +226,18 @@ public class PlayerController : MonoBehaviour
         // Prioritize joystick input if it's active and has a non-zero direction
         if (_useJoystickInput && inputFromJoystick.magnitude > 0.01f) // Use a small threshold for joystick
         {
+            // NEW: Added Debug.Log to show joystick movement
+            Debug.Log($"Joystick Input: X={inputFromJoystick.x:F2}, Y={inputFromJoystick.y:F2}");
+
             // Joystick uses standard cardinal movement
             finalMoveDirection = new Vector3(inputFromJoystick.x, inputFromJoystick.y, 0);
             _currentRawInput = inputFromJoystick; // Store for animator check
         }
         else // Fallback to keyboard/gamepad input
         {
+            // NEW: Added Debug.Log to show keyboard/gamepad movement
+            Debug.Log($"Keyboard/Gamepad Input: X={inputFromInputActions.x:F2}, Y={inputFromInputActions.y:F2}");
+
             // Keyboard/gamepad uses isometric movement
             Vector2 rawInput = inputFromInputActions;
 
@@ -265,9 +264,6 @@ public class PlayerController : MonoBehaviour
         {
             _rb.linearVelocity = Vector2.zero; // Ensure player stops if no input
             CurrentMovementVelocity = Vector2.zero; // NEW: Reset exposed velocity
-            // When stopped due to lack of input, set direction parameters to 0.
-            _animator.SetFloat(HorizontalDirectionHash, 0f);
-            _animator.SetFloat(VerticalDirectionHash, 0f);
             return;
         }
 
@@ -298,9 +294,9 @@ public class PlayerController : MonoBehaviour
         // Use a very small epsilon for comparisons to ensure any non-zero input triggers a flip.
         float epsilon = 0.0001f;
 
-        // Determine horizontal flip based on input, prioritizing horizontal movement, then vertical.
-        // This implements: "down or left, the player sprite should flip to point left"
-        // and "up or right, the player should flip the the right."
+        // --- FIXED LOGIC ---
+        // 1. Determine horizontal flip based on input from the X axis.
+        //    This logic remains the same as it was working correctly.
         if (rawInput.x < -epsilon) // Moving left
         {
             _spriteRenderer.flipX = true; // Flip to face left
@@ -324,51 +320,17 @@ public class PlayerController : MonoBehaviour
         // If both x and y inputs are effectively zero, spriteRenderer.flipX retains its last state.
 
 
-        // Determine IsFacingBackward based on X or Y input, and retain state when idle.
-        // IsBackwards should be checked when player moves up (positive Y) OR left (negative X).
-        // If player moves down (negative Y) OR right (positive X), IsBackwards should be unchecked.
-        // Use a very small epsilon for comparisons to ensure any non-zero input triggers the boolean change.
-        if (rawInput.y > epsilon || rawInput.x < -epsilon) // Moving "up" or "left"
+        // 2. Determine IsFacingBackward based *only* on the vertical (Y) input.
+        // This is the core fix. The player should only face backward when moving "up" (positive Y).
+        if (rawInput.y > epsilon) // Moving "up"
         {
-            _animator.SetBool(IsFacingBackwardHash, true); // Should face/animate backward
+            _animator.SetBool(IsFacingBackwardHash, true); // Should animate backward
         }
-        else if (rawInput.y < -epsilon || rawInput.x > epsilon) // Moving "down" or "right"
+        else if (rawInput.y < -epsilon) // Moving "down"
         {
-            _animator.SetBool(IsFacingBackwardHash, false); // Should face/animate forward
+            _animator.SetBool(IsFacingBackwardHash, false); // Should animate forward
         }
-        // If input is effectively zero for both axes, IsFacingBackwardHash retains its last value.
-
-
-        // Set HorizontalDirection float only if movement is significant (keep dead zones here)
-        if (rawInput.x < -_horizontalInputDeadZone)
-        {
-            _animator.SetFloat(HorizontalDirectionHash, -1f); // Set animator parameter for left
-        }
-        else if (rawInput.x > _horizontalInputDeadZone)
-        {
-            _animator.SetFloat(HorizontalDirectionHash, 1f); // Set animator parameter for right
-        }
-        else
-        {
-            // If horizontal input is within dead zone, set to 0. This allows the Animator to snap to neutral horizontal.
-            _animator.SetFloat(HorizontalDirectionHash, 0f);
-        }
-
-        // Set VerticalDirection float only if movement is significant (keep dead zones here)
-        // Consistent with "Walking Forward is moving down in my map, and Backward is moving up."
-        if (rawInput.y > _verticalInputDeadZone) // Moving UP the screen
-        {
-            _animator.SetFloat(VerticalDirectionHash, 1f); // Positive Y for "backward" direction
-        }
-        else if (rawInput.y < -_verticalInputDeadZone) // Moving DOWN the screen
-        {
-            _animator.SetFloat(VerticalDirectionHash, -1f); // Negative Y for "forward" direction
-        }
-        else
-        {
-            // If vertical input is within dead zone, set to 0. This allows the Animator to snap to neutral vertical.
-            _animator.SetFloat(VerticalDirectionHash, 0f);
-        }
+        // If vertical input is effectively zero, IsFacingBackwardHash retains its last value.
     }
 
     /// <summary>
@@ -383,13 +345,10 @@ public class PlayerController : MonoBehaviour
     {
         _isAtFirepitSpot = true; // This flag ensures FixedUpdate doesn't override
         _animator.SetBool(IsMovingHash, isMoving);
-        _animator.SetFloat(HorizontalDirectionHash, horizontalDir);
-        _animator.SetFloat(VerticalDirectionHash, verticalDir);
 
         _spriteRenderer.flipX = flipSpriteX; // Apply the new flipX parameter directly
 
-        // The IsFacingBackward logic remains as it was
-        // ... (your existing IsFacingBackward logic based on horizontalDir/verticalDir)
+        // --- FIXED LOGIC: Correctly set IsFacingBackward based on the vertical direction only. ---
         float epsilon = 0.0001f;
         if (verticalDir > epsilon)
         {
@@ -399,16 +358,10 @@ public class PlayerController : MonoBehaviour
         {
             _animator.SetBool(IsFacingBackwardHash, false);
         }
-        else if (horizontalDir < -epsilon)
-        {
-            _animator.SetBool(IsFacingBackwardHash, true);
-        }
-        else if (horizontalDir > epsilon)
-        {
-            _animator.SetBool(IsFacingBackwardHash, false);
-        }
+        // If vertical direction is effectively zero, IsFacingBackwardHash retains its last value.
+        // -------------------------------------------------------------------------------------------------------
 
-        Debug.Log($"PlayerController: Firepit animation state set. IsMoving: {isMoving}, HDir: {horizontalDir}, VDir: {verticalDir}. IsFacingBackward: {_animator.GetBool(IsFacingBackwardHash)}, Sprite flipX: {_spriteRenderer.flipX}");
+        Debug.Log($"PlayerController: Firepit animation state set. IsMoving: {isMoving}. IsFacingBackward: {_animator.GetBool(IsFacingBackwardHash)}, Sprite flipX: {_spriteRenderer.flipX}");
     }
 
     /// <summary>
@@ -447,18 +400,17 @@ public class PlayerController : MonoBehaviour
         // If both x and y directions are effectively zero, spriteRenderer.flipX retains its last state.
 
 
-        // Determine IsFacingBackward based on X or Y direction.
-        // IsBackwards should be true when player moves up (positive Y) OR left (negative X).
-        // If player moves down (negative Y) OR right (positive X), IsBackwards should be unchecked.
-        if (direction.y > epsilon || direction.x < -epsilon) // Direction is upwards (positive Y) or left (negative X)
+        // --- FIXED LOGIC: IsFacingBackward is now based on vertical direction only. ---
+        if (direction.y > epsilon) // Direction is upwards (positive Y)
         {
             _animator.SetBool(IsFacingBackwardHash, true); // Should face/animate backward
         }
-        else if (direction.y < -epsilon || direction.x > epsilon) // Direction is downwards (negative Y) or right (positive X)
+        else if (direction.y < -epsilon) // Direction is downwards (negative Y)
         {
             _animator.SetBool(IsFacingBackwardHash, false); // Should face/animate forward
         }
         // If direction is effectively zero, IsFacingBackwardHash retains its last value.
+        // ---------------------------------------------------------------------------
 
         Debug.Log($"PlayerController: SetFacingDirection called. Direction: {direction}. IsFacingBackward: {_animator.GetBool(IsFacingBackwardHash)}, Sprite flipX: {_spriteRenderer.flipX}");
     }
