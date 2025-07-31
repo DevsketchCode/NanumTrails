@@ -384,6 +384,13 @@ public class NPCFollower : MonoBehaviour
             }
         }
 
+        // NEW: If the NPC is now at the firepit spot (flag set mid-frame by OnDestinationReached),
+        // immediately return to prevent further animation updates in this frame.
+        if (_isAtFirepitSpot)
+        {
+            return;
+        }
+
         // --- Animation Parameter Updates (ONLY if actively moving/following) ---
         // Debug.Log($"NPC {gameObject.name}: IsMoving (BEFORE SET): {_animator.GetBool(IsMovingHash)}. isCurrentlyMoving (calculated): {isCurrentlyMoving}");
         _animator.SetBool(IsMovingHash, isCurrentlyMoving);
@@ -635,10 +642,6 @@ public class NPCFollower : MonoBehaviour
             _animator.SetBool(IsFacingBackwardHash, false); // Should face/animate forward
         }
         // If both x and y directions are effectively zero, IsFacingBackwardHash maintains its last state.
-
-        // IMPORTANT: This method is for visual facing only. It does NOT set the float parameters
-        // (HorizontalDirectionHash, VerticalDirectionHash) as those are for active movement.
-        // When an NPC is at a firepit, SetFirepitAnimationState handles all parameters.
 
         Debug.Log($"NPCFollower on {gameObject.name}: SetFacingDirection called. Direction: {direction}. IsFacingBackward: {_animator.GetBool(IsFacingBackwardHash)}, Sprite flipX: {_spriteRenderer.flipX}");
     }

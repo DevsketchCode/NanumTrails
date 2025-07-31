@@ -113,6 +113,11 @@ MonoBehaviour:
   _stopDistanceThreshold: 0.1
   _playerProximityStopDistance: 0.7
   _followDelayFrames: 10
+  _horizontalVelocityDeadZone: 0.01
+  _verticalVelocityDeadZone: 0.01
+  OnDestinationReached:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &5870910053113281300
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -213,7 +218,7 @@ MonoBehaviour:
     NextNodeIndexAlternate: 3
     EndConversationOnPositiveChoice: 0
     EndConversationOnAlternateChoice: 0
-    EndConversationAfterNPC: 0
+    EndConversationAfterNPC: 1
     IsQuestAcceptChoicePositive: 0
     IsQuestAcceptChoiceAlternate: 0
     IsQuestDeliverChoicePositive: 1

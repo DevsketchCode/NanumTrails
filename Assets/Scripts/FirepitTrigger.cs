@@ -366,9 +366,13 @@ public class FirepitTrigger : MonoBehaviour
 
         if (spotConfig != null)
         {
+            // NEW LOG: Log the values read from FirepitSpotAnimationConfig before passing them
+            Debug.Log($"FirepitTrigger: For NPC {npc.name}, spotConfig values: IsMovingAtSpot={spotConfig.IsMovingAtSpot}, HDir={spotConfig.NpcHorizontalDirectionAtSpot}, VDir={spotConfig.NpcVerticalDirectionAtSpot}");
+
             // Apply the final animation state for the firepit spot
+            // CORRECTED: Pass spotConfig.IsMovingAtSpot directly, not its negation
             npc.SetFirepitAnimationState(
-                !spotConfig.IsMovingAtSpot, // IsMoving should be false for idle
+                spotConfig.IsMovingAtSpot, // IsMoving should be true if IsMovingAtSpot is true, false for idle
                 spotConfig.NpcHorizontalDirectionAtSpot,
                 spotConfig.NpcVerticalDirectionAtSpot
             );
