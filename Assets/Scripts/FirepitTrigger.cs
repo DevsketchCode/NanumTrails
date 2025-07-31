@@ -259,12 +259,14 @@ public class FirepitTrigger : MonoBehaviour
 
             if (playerSpotConfig != null)
             {
-                // Set player movement state (IsMoving)
+                // Set player movement state (IsMoving) and sprite flipX
                 PlayerController.Instance.SetMovementEnabled(false); // Disable player input and movement
+                // Pass the new PlayerFlipSpriteXAtSpot to SetFirepitAnimationState
                 PlayerController.Instance.SetFirepitAnimationState(
                     !playerSpotConfig.IsMovingAtSpot, // IsMoving should be false for idle
-                    playerSpotConfig.NpcHorizontalDirectionAtSpot,
-                    playerSpotConfig.NpcVerticalDirectionAtSpot
+                    playerSpotConfig.NpcHorizontalDirectionAtSpot, // Player uses NPC HDir/VDir for idle animation
+                    playerSpotConfig.NpcVerticalDirectionAtSpot,
+                    playerSpotConfig.PlayerFlipSpriteXAtSpot // NEW: Pass the player's X-flip setting
                 );
 
                 Vector2 playerFacingDirection;
@@ -367,14 +369,15 @@ public class FirepitTrigger : MonoBehaviour
         if (spotConfig != null)
         {
             // NEW LOG: Log the values read from FirepitSpotAnimationConfig before passing them
-            Debug.Log($"FirepitTrigger: For NPC {npc.name}, spotConfig values: IsMovingAtSpot={spotConfig.IsMovingAtSpot}, HDir={spotConfig.NpcHorizontalDirectionAtSpot}, VDir={spotConfig.NpcVerticalDirectionAtSpot}");
+            Debug.Log($"FirepitTrigger: For NPC {npc.name}, spotConfig values: IsMovingAtSpot={spotConfig.IsMovingAtSpot}, HDir={spotConfig.NpcHorizontalDirectionAtSpot}, VDir={spotConfig.NpcVerticalDirectionAtSpot}, FlipX={spotConfig.NpcFlipSpriteXAtSpot}");
 
             // Apply the final animation state for the firepit spot
-            // CORRECTED: Pass spotConfig.IsMovingAtSpot directly, not its negation
+            // Pass the new NpcFlipSpriteXAtSpot to SetFirepitAnimationState
             npc.SetFirepitAnimationState(
                 spotConfig.IsMovingAtSpot, // IsMoving should be true if IsMovingAtSpot is true, false for idle
                 spotConfig.NpcHorizontalDirectionAtSpot,
-                spotConfig.NpcVerticalDirectionAtSpot
+                spotConfig.NpcVerticalDirectionAtSpot,
+                spotConfig.NpcFlipSpriteXAtSpot // NEW: Pass the NPC's X-flip setting
             );
             // Tell the NPCFollower that it is now at the firepit spot, so FixedUpdate stops overriding animations
             npc.SetIsAtFirepitSpot(true);

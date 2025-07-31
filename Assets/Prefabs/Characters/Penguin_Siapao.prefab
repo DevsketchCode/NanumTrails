@@ -218,7 +218,7 @@ MonoBehaviour:
     NextNodeIndexAlternate: 3
     EndConversationOnPositiveChoice: 0
     EndConversationOnAlternateChoice: 0
-    EndConversationAfterNPC: 1
+    EndConversationAfterNPC: 0
     IsQuestAcceptChoicePositive: 0
     IsQuestAcceptChoiceAlternate: 0
     IsQuestDeliverChoicePositive: 1

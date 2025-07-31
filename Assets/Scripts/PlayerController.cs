@@ -379,54 +379,33 @@ public class PlayerController : MonoBehaviour
     /// <param name="isMoving">Should the 'IsMoving' parameter be set to true or false (usually false for idle).</param>
     /// <param name="horizontalDir">The value for the 'HorizontalDirection' float parameter (usually 0 for idle).</param>
     /// <param name="verticalDir">The value for the 'VerticalDirection' float parameter (usually 0 for idle).</param>
-    public void SetFirepitAnimationState(bool isMoving, float horizontalDir, float verticalDir)
+    public void SetFirepitAnimationState(bool isMoving, float horizontalDir, float verticalDir, bool flipSpriteX) // Added flipSpriteX
     {
-        _isAtFirepitSpot = true; // Player is now at the firepit spot, prevent FixedUpdate from overriding
-        _isMovementEnabled = false; // Ensure movement is disabled
-
-        _rb.linearVelocity = Vector2.zero; // Explicitly stop the player's rigidbody
-
+        _isAtFirepitSpot = true; // This flag ensures FixedUpdate doesn't override
         _animator.SetBool(IsMovingHash, isMoving);
         _animator.SetFloat(HorizontalDirectionHash, horizontalDir);
         _animator.SetFloat(VerticalDirectionHash, verticalDir);
 
-        // Determine sprite flip and IsFacingBackward based on provided directions
+        _spriteRenderer.flipX = flipSpriteX; // Apply the new flipX parameter directly
+
+        // The IsFacingBackward logic remains as it was
+        // ... (your existing IsFacingBackward logic based on horizontalDir/verticalDir)
         float epsilon = 0.0001f;
-
-        // Sprite Flip (left/right)
-        if (horizontalDir < -epsilon) // Left
-        {
-            _spriteRenderer.flipX = true;
-        }
-        else if (horizontalDir > epsilon) // Right
-        {
-            _spriteRenderer.flipX = false;
-        }
-        else if (verticalDir < -epsilon) // Down
-        {
-            _spriteRenderer.flipX = true; // Face left
-        }
-        else if (verticalDir > epsilon) // Up
-        {
-            _spriteRenderer.flipX = false; // Face right
-        }
-
-        // IsFacingBackward (up/down)
-        if (verticalDir > epsilon) // Up (backward)
+        if (verticalDir > epsilon)
         {
             _animator.SetBool(IsFacingBackwardHash, true);
         }
-        else if (verticalDir < -epsilon) // Down (forward)
+        else if (verticalDir < -epsilon)
         {
             _animator.SetBool(IsFacingBackwardHash, false);
         }
-        else if (horizontalDir < -epsilon) // Left
+        else if (horizontalDir < -epsilon)
         {
-            _animator.SetBool(IsFacingBackwardHash, true); // Face backward
+            _animator.SetBool(IsFacingBackwardHash, true);
         }
-        else if (horizontalDir > epsilon) // Right
+        else if (horizontalDir > epsilon)
         {
-            _animator.SetBool(IsFacingBackwardHash, false); // Face forward
+            _animator.SetBool(IsFacingBackwardHash, false);
         }
 
         Debug.Log($"PlayerController: Firepit animation state set. IsMoving: {isMoving}, HDir: {horizontalDir}, VDir: {verticalDir}. IsFacingBackward: {_animator.GetBool(IsFacingBackwardHash)}, Sprite flipX: {_spriteRenderer.flipX}");

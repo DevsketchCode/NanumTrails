@@ -113,6 +113,11 @@ MonoBehaviour:
   _stopDistanceThreshold: 0.1
   _playerProximityStopDistance: 0.7
   _followDelayFrames: 10
+  _horizontalVelocityDeadZone: 0.01
+  _verticalVelocityDeadZone: 0.01
+  OnDestinationReached:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &5632710678414653213
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -172,7 +177,7 @@ MonoBehaviour:
     PlayerResponseAlternateText: 
     NextNodeIndexPositive: 0
     NextNodeIndexAlternate: 0
-    EndConversationOnPositiveChoice: 0
+    EndConversationOnPositiveChoice: 1
     EndConversationOnAlternateChoice: 0
     EndConversationAfterNPC: 1
     IsQuestAcceptChoicePositive: 0
@@ -215,7 +220,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-  _questRewardItem: {fileID: 0}
+  _questRewardItem: {fileID: 11400000, guid: 4735dede24c56ae42b049abb98096f15, type: 2}
   _questRewardQuantity: 1
   _npcFollower: {fileID: 910819745021912089}
   _shouldFollowPlayerOnQuestComplete: 1

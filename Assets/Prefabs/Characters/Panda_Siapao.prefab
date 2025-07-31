@@ -113,6 +113,11 @@ MonoBehaviour:
   _stopDistanceThreshold: 0.1
   _playerProximityStopDistance: 0.7
   _followDelayFrames: 10
+  _horizontalVelocityDeadZone: 0.01
+  _verticalVelocityDeadZone: 0.01
+  OnDestinationReached:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &847960258125604731
 MonoBehaviour:
   m_ObjectHideFlags: 0

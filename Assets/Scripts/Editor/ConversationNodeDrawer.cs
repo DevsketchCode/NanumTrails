@@ -139,7 +139,7 @@ public class ConversationNodeDrawer : PropertyDrawer
                 if (EditorGUI.EndChangeCheck() && isDeliverPositiveProp.boolValue)
                 {
                     isAcceptPositiveProp.boolValue = false;
-                    endOnPositiveProp.boolValue = false;
+                    //endOnPositiveProp.boolValue = false;
                 }
                 currentRect.y += EditorGUIUtility.singleLineHeight;
 
@@ -148,7 +148,7 @@ public class ConversationNodeDrawer : PropertyDrawer
                 if (EditorGUI.EndChangeCheck() && endOnPositiveProp.boolValue)
                 {
                     isAcceptPositiveProp.boolValue = false;
-                    isDeliverPositiveProp.boolValue = false;
+                    //isDeliverPositiveProp.boolValue = false;
                 }
                 currentRect.y += EditorGUIUtility.singleLineHeight;
 

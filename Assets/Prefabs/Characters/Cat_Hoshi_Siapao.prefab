@@ -115,6 +115,9 @@ MonoBehaviour:
   _followDelayFrames: 1
   _horizontalVelocityDeadZone: 0.01
   _verticalVelocityDeadZone: 0.01
+  OnDestinationReached:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &3075450407982285752
 MonoBehaviour:
   m_ObjectHideFlags: 0

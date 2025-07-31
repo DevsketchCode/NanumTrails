@@ -533,9 +533,9 @@ public class NPCFollower : MonoBehaviour
     /// <param name="isMoving">Should the 'IsMoving' parameter be set to true or false.</param>
     /// <param name="horizontalDir">The value for the 'HorizontalDirection' float parameter.</param>
     /// <param name="verticalDir">The value for the 'VerticalDirection' float parameter.</param>
-    public void SetFirepitAnimationState(bool isMoving, float horizontalDir, float verticalDir)
+    /// <param name="flipSpriteX">Should the sprite be flipped on the X-axis?</param>
+    public void SetFirepitAnimationState(bool isMoving, float horizontalDir, float verticalDir, bool flipSpriteX)
     {
-        // Removed: _isAtFirepitSpot = true; // This flag will now be set by FirepitTrigger after arrival
         _isMovingToDestination = false; // Ensure it's not considered moving to destination
         _isFollowing = false; // Ensure it's not considered following
 
@@ -545,38 +545,19 @@ public class NPCFollower : MonoBehaviour
         _animator.SetFloat(HorizontalDirectionHash, horizontalDir);
         _animator.SetFloat(VerticalDirectionHash, verticalDir);
 
-        // Determine sprite flip and IsFacingBackward based on provided directions
-        // Use a very small epsilon for comparisons to ensure any non-zero input triggers a flip.
+        // Directly set sprite flip based on the provided parameter
+        _spriteRenderer.flipX = flipSpriteX;
+
+        // IsFacingBackward (up/down) - This logic remains as it's separate from horizontal flip
+        // Use a very small epsilon for comparisons to ensure any non-zero input triggers a change.
         float epsilon = 0.0001f;
-
-        // Sprite Flip (left/right)
-        if (horizontalDir < -epsilon) // Left
-        {
-            _spriteRenderer.flipX = true;
-        }
-        else if (horizontalDir > epsilon) // Right
-        {
-            _spriteRenderer.flipX = false;
-        }
-        // If horizontal is zero, use vertical for horizontal flip (as per player logic)
-        else if (verticalDir < -epsilon) // Down
-        {
-            _spriteRenderer.flipX = true; // Face left
-        }
-        else if (verticalDir > epsilon) // Up
-        {
-            _spriteRenderer.flipX = false; // Face right
-        }
-        // If both are zero, retain last flipX
-
-        // IsFacingBackward (up/down)
         if (verticalDir > epsilon) // Up (backward)
         {
-            _animator.SetBool(IsFacingBackwardHash, true);
+            _animator.SetBool(IsFacingBackwardHash, true); // Should face/animate backward
         }
         else if (verticalDir < -epsilon) // Down (forward)
         {
-            _animator.SetBool(IsFacingBackwardHash, false);
+            _animator.SetBool(IsFacingBackwardHash, false); // Should face/animate forward
         }
         // If vertical is zero, use horizontal for IsFacingBackward (as per player logic)
         else if (horizontalDir < -epsilon) // Left

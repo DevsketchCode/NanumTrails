@@ -358,24 +358,27 @@ public class ConversationManager : MonoBehaviour
         ItemData requiredItem = _activeNpcTrigger.GetQuestItemRequired();
 
         // Check if the player has the item and the quest has been accepted
-        if (_activeNpcTrigger.HasQuestBeenAccepted() && InventoryManager.Instance != null && InventoryManager.Instance.HasItem(requiredItem))
+        if (_activeNpcTrigger.HasQuestBeenAccepted() && InventoryManager.Instance != null && (InventoryManager.Instance.HasItem(requiredItem) || requiredItem == null))
         {
-            if (InventoryManager.Instance.RemoveItem(requiredItem))
+
+            if (requiredItem != null)
             {
-                _activeNpcTrigger.SetQuestCompleted(true); // This will now also add to friends via NPCConversationTrigger
-                Debug.Log($"Quest item '{requiredItem.ItemName}' delivered to {_activeNpcTrigger.gameObject.name}. Quest completed!");
-                _activeNpcTrigger.TriggerQuestCompletionAction(); // Trigger the custom action
-
-                // NEW: Give quest reward if specified by the NPCConversationTrigger
-                _activeNpcTrigger?.GiveQuestReward(); // Call the new method on the NPCConversationTrigger
-
-                EndConversation(); // End conversation after successful delivery
+                InventoryManager.Instance.RemoveItem(requiredItem);
             }
             else
             {
                 Debug.LogWarning($"Failed to remove '{requiredItem.ItemName}' from inventory during delivery attempt.");
                 // Optionally, display a message to the player that removal failed.
             }
+
+            _activeNpcTrigger.SetQuestCompleted(true); // This will now also add to friends via NPCConversationTrigger
+            Debug.Log($"Quest item '{requiredItem.ItemName}' delivered to {_activeNpcTrigger.gameObject.name}. Quest completed!");
+            _activeNpcTrigger.TriggerQuestCompletionAction(); // Trigger the custom action
+
+            // NEW: Give quest reward if specified by the NPCConversationTrigger
+            _activeNpcTrigger?.GiveQuestReward(); // Call the new method on the NPCConversationTrigger
+
+            EndConversation(); // End conversation after successful delivery
         }
         else
         {
